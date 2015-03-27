@@ -12,9 +12,11 @@ TARGET = LiveKit-Parted
 TEMPLATE = app
 
 
-SOURCES += main.cpp\
-        mainwindow.cpp \
-    parted_widget.cpp
+SOURCES +=  main.cpp            \
+            mainwindow.cpp      \
+            parted_widget.cpp
 
-HEADERS  += mainwindow.h \
-    parted_widget.h
+HEADERS  += mainwindow.h        \
+            parted_widget.h
+
+LIBS += -lparted

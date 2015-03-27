@@ -1,20 +1,50 @@
 #include "parted_widget.h"
 
 
-partition_item::partition_item(QWidget *parent):
+partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *Dev):
     QWidget(parent){
-    this->Title     = new QLabel(this);
-    this->TitleFont.setPointSize(16);
-    this->Title->setFont(this->TitleFont);
-    this->Title->setText(tr("Title desu"));
-    this->Title->setGeometry(0,0,300,25);
-    this->Title->show();
+    this->Path      = new QLabel(this);
+    this->FsName    = new QLabel(this);
+    this->Size      = new QLabel(this);
+    this->Font.setPointSize(10);
+    this->Path->setFont(this->Font);
+    this->FsName->setFont(this->Font);
+    this->Size->setFont(this->Font);
+    this->Path->setText(tr("/dev/sda12"));
+    this->FsName->setText(tr("EXT3"));
+    this->Size->setText(tr("100G"));
+    this->Path->setGeometry(0,0,PARTITION_PATH_LENGTH,PARTITION_HEIGTH);
+    this->FsName->setGeometry(PARTITION_PATH_LENGTH,0,PARTITION_FS_NAME_LENGTH,PARTITION_HEIGTH);
+    this->Size->setGeometry(PARTITION_PATH_LENGTH+PARTITION_FS_NAME_LENGTH,0,PARTITION_SIZE_LENGTH,PARTITION_HEIGTH);
     this->setStyleSheet("background-color:white;");
     this->resize(PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
+
+    if(Part != NULL && Dev != NULL){
+        this->Partition = new PedPartition;
+        this->Device    = new PedDevice;
+        memcpy(this->Partition,Part,sizeof(PedPartition));
+        memcpy(Device,Dev,sizeof(PedDevice));
+        char TmpBuffer[64] = {0};
+        sprintf(TmpBuffer,"%lld MB",(Partition->geom.length * Device->sector_size)/(1024*1024));
+        this->Size->setText(tr(TmpBuffer));
+        if(this->Partition->type & PED_PARTITION_FREESPACE){
+            this->FsName->setText(tr("Free Space"));
+            this->Path->setText(tr("Free Space"));
+        }else{
+            this->FsName->setText(tr(this->Partition->fs_type->name));
+            this->Path->setText(tr(ped_partition_get_path(Partition)));
+        }
+    }
 }
 
 partition_item::~partition_item(){
-    delete  this->Title;
+    if(this->Partition != NULL)
+        delete this->Partition;
+    if(this->Device != NULL)
+        delete this->Device;
+    delete  this->Path;
+    delete  this->FsName;
+    delete  this->Size;
 }
 
 void partition_item::mousePressEvent(QMouseEvent *){
@@ -27,35 +57,39 @@ void partition_item::unClicked(){
 }
 
 
-disk_item::disk_item(QWidget *parent):
+disk_item::disk_item(QWidget *parent, PedDisk *disk, PedDevice *dev):
     QWidget(parent){
     this->setWindowFlags(Qt::FramelessWindowHint);
     this->Title     = new QLabel(this);
     this->shown     = true;
-    MainLayout      = new QVBoxLayout;
     PartitionsMap   = new p_map_t;
 
-    this->Title->setGeometry(0,0,300,30);
+    this->Title->setGeometry(0,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
 
-    TitleFont.setPixelSize(20);
+    TitleFont.setPixelSize(16);
     this->Title->setFont(TitleFont);
-    this->Title->setText(tr("/dev/sda xxxx xxGB"));
+    this->Title->setText(tr("/dev/sda xxxx xxGB xxxxx"));
 
-    this->resize(200,0);
-    this->setLayout(MainLayout);
+    this->resize(PARTED_WIDGET_WIDTH,0);
+    this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH);
 
-    this->MainLayout->setSpacing(0);
-    this->MainLayout->insertSpacing(-1,20);
-    this->PartitionsMap->insert(0,new partition_item);
-    this->resize(300,30);
+    /*this->InsertPartitions(new partition_item(this));
+    this->InsertPartitions(new partition_item(this));
+    this->InsertPartitions(new partition_item(this));
+    this->InsertPartitions(new partition_item(this));*/
 
-    this->InsertPartitions(new partition_item);
-    this->InsertPartitions(new partition_item);
-
+    if(disk != NULL && dev != NULL){
+        this->Disk = new PedDisk;
+        this->Device = new PedDevice;
+        memcpy(this->Disk,disk,sizeof(PedDisk));
+        memcpy(this->Device,dev,sizeof(PedDevice));
+        char TmpBuffer[64] = {0};
+        sprintf(TmpBuffer,"%s -- %lld G",this->Device->model,(this->Device->sector_size * this->Device->length)/(1024*1024*1024));
+        this->Title->setText(tr(TmpBuffer));
+    }
 }
 
 disk_item::~disk_item(){
-    delete  this->MainLayout;
     if(this->PartitionsMap->isEmpty() == false){
         p_map_t::iterator i = this->PartitionsMap->begin();
         while(i != this->PartitionsMap->end()){
@@ -71,7 +105,6 @@ disk_item::~disk_item(){
 void disk_item::clearClickedStatus(){
     if(this->PartitionsMap->isEmpty() == false){
         p_map_t::iterator i = this->PartitionsMap->begin();
-        i++;
         while(i != this->PartitionsMap->end()){
             i.value()->unClicked();
             i++;
@@ -80,15 +113,14 @@ void disk_item::clearClickedStatus(){
 }
 
 int  disk_item::getSize(){
-    return this->PartitionsMap->size()-1;
+    return this->PartitionsMap->size();
 }
 
 void disk_item::mousePressEvent(QMouseEvent *){
     if (this->shown){
-        this->resize(PARTED_WIDGET_WIDTH,30);
+        this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH);
         if(this->PartitionsMap->isEmpty() == false){
             p_map_t::iterator i = this->PartitionsMap->begin();
-            i++;
             while(i != this->PartitionsMap->end()){
                 i.value()->setVisible(false);
                 i.value()->unClicked();
@@ -97,10 +129,9 @@ void disk_item::mousePressEvent(QMouseEvent *){
         }
         this->shown = false;
     }else{
-        this->resize(PARTED_WIDGET_WIDTH,30+(this->PartitionsMap->size()-1)*PARTITION_HEIGTH);
+        this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH+(this->PartitionsMap->size())*PARTITION_HEIGTH);
         if(this->PartitionsMap->isEmpty() == false){
             p_map_t::iterator i = this->PartitionsMap->begin();
-            i++;
             while(i != this->PartitionsMap->end()){
                 i.value()->setVisible(true);
                 i.value()->unClicked();
@@ -115,10 +146,12 @@ void disk_item::mousePressEvent(QMouseEvent *){
 
 /* If the 'order' is -1, then insert this item to the bottom */
 void disk_item::InsertPartitions(partition_item *Item,int order){
+    if(Item == NULL)    return;
     if (order == -1)
         order = this->PartitionsMap->size();
     this->PartitionsMap->insert(order,Item);
-    this->MainLayout->insertWidget(order,Item);
+    //this->MainLayout->insertWidget(order,Item);
+    Item->setGeometry(0,DISK_HEIGTH+(PartitionsMap->size()-1)*PARTITION_HEIGTH,PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
     this->resize(this->width(),this->height()+PARTITION_HEIGTH);
     this->connect(Item,SIGNAL(clicked(partition_item*)),this,SLOT(onItemClicked(partition_item*)));
     return;
@@ -143,13 +176,15 @@ bool disk_item::spreaded(){
 
 partition_select::partition_select(QWidget *parent):
     QWidget(parent){
-    this->resize(300,0);
+    this->resize(PARTED_WIDGET_WIDTH,0);
     this->setWindowFlags(Qt::FramelessWindowHint);
     DiskMap     = new d_map_t;
+    this->refreshSelect();
+    //this->insertDisk(new disk_item(this));
+    //this->insertDisk(new disk_item(this));
+    //this->insertDisk(new disk_item(this));
+    //this->insertDisk(new disk_item(this));
 
-    this->insertDisk(new disk_item(this));
-    this->insertDisk(new disk_item(this));
-    this->insertDisk(new disk_item(this));
 }
 
 partition_select::~partition_select(){
@@ -189,7 +224,7 @@ void partition_select::onDiskClicked(disk_item *Item, bool spreaded){
             while(i != this->DiskMap->end()){
                 locale = i.value()->geometry();
                 locale.setY(locale.y()+h_change);
-                h_temp = 30;
+                h_temp = DISK_HEIGTH;
                 if(i.value()->spreaded())
                     h_temp += i.value()->getSize()*PARTITION_HEIGTH;
                 locale.setHeight(h_temp);
@@ -208,15 +243,15 @@ void partition_select::insertDisk(disk_item *Item, int order){
     if(this->DiskMap->isEmpty() == false){
         d_map_t::iterator i = this->DiskMap->begin();
         while(i != this->DiskMap->end()){
-            h += 30;
+            h += DISK_HEIGTH;
             if(i.value()->spreaded())
                 h += i.value()->getSize()*PARTITION_HEIGTH;
             i++;
         }
     }
-    Item->setGeometry(0,h,300,30+PARTITION_HEIGTH*Item->getSize());
+    Item->setGeometry(0,h,PARTED_WIDGET_WIDTH,DISK_HEIGTH+PARTITION_HEIGTH*Item->getSize());
     this->DiskMap->insert(order,Item);
-    h += Item->getSize()*PARTITION_HEIGTH + 30;
+    h += Item->getSize()*PARTITION_HEIGTH + DISK_HEIGTH;
 
     this->resize(this->width(),h);
     this->connect(Item,SIGNAL(diskClicked(disk_item*,bool)),this,SLOT(onDiskClicked(disk_item*,bool)));
@@ -234,5 +269,47 @@ void partition_select::onPartitionClicked(disk_item *disk, partition_item *){
                 i.value()->clearClickedStatus();
             i++;
         }
+    }
+}
+
+void partition_select::clearSelect(){
+
+}
+
+void partition_select::refreshSelect(){
+    this->clearSelect();
+    PedPartition Part;
+    PedDevice *dev = 0;
+    disk_item       *d_item = NULL;
+    partition_item  *p_item = NULL;
+    while((dev = ped_device_get_next(dev))){
+        printf("\n ==============================================\n");
+        printf("device model: %s\n", dev->model);
+        printf("path: %s\n",dev->path);
+        long long size = (dev->sector_size * dev->length)/(1024*1024*1024);
+        printf("size: %lld G\n", size);
+        PedDisk* disk = ped_disk_new(dev);
+        PedPartition* part = 0;
+        d_item = new disk_item(this,disk,dev);
+        while((part = ped_disk_next_partition(disk, part))){
+            //略过不是分区的空间
+          if ((part->type & PED_PARTITION_METADATA) ||
+                (part->type & PED_PARTITION_EXTENDED))
+                    continue;
+           printf("++++++++++++++++++++++++++++++++++++\n");
+            printf("partition: %s\n", ped_partition_get_path(part));
+            if(part->fs_type)
+                printf("fs_type: %s\n", part->fs_type->name);
+            else
+                printf("fs_type: (null)\n");
+            printf("partition start:%lld/n", part->geom.start);
+            printf("partition end: %lld/n", part->geom.end);
+            printf("partition length:%lld M\n", (part->geom.length * dev->sector_size)/(1024*1024));
+            memcpy((void*)&Part,(void*)part,sizeof(Part));
+            p_item = new partition_item(this,part,dev);
+            d_item->InsertPartitions(p_item);
+            //AddPartition(part,dev,disk);
+        }
+        this->insertDisk(d_item);
     }
 }
