@@ -6,7 +6,7 @@ int main(int argc, char *argv[]){
     MainWindow w;
     ped_device_probe_all();
     //w.show();
-    partition_select *widget = new partition_select;
+    partition_controllor *widget = new partition_controllor;
     widget->show();
 
     return a.exec();

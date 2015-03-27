@@ -92,7 +92,7 @@ disk_item::disk_item(QWidget *parent, PedDisk *disk, PedDevice *dev):
     this->shown     = true;
     PartitionsMap   = new p_map_t;
 
-    this->Title->setGeometry(0,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
+    this->Title->setGeometry(DISK_SPACING,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
 
     TitleFont.setPixelSize(16);
     this->Title->setFont(TitleFont);
@@ -273,8 +273,23 @@ void partition_select::onDiskClicked(disk_item *Item, bool spreaded){
             }
         }
     }
+    if(found)
+        emit this->diskClicked(Item);
 }
 
+
+void partition_select::onPartitionClicked(disk_item *disk, partition_item *item){
+    d_map_t::iterator i;
+    if(this->DiskMap->isEmpty() == false){
+        i = this->DiskMap->begin();
+        while(i != this->DiskMap->end()){
+            if(i.value() != disk)
+                i.value()->clearClickedStatus();
+            i++;
+        }
+    }
+    emit this->partitionClicked(disk,item);
+}
 void partition_select::insertDisk(disk_item *Item, int order){
     if (order == -1)
         order = this->DiskMap->size();
@@ -297,18 +312,6 @@ void partition_select::insertDisk(disk_item *Item, int order){
     this->connect(Item,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
     Item->show();
     return;
-}
-
-void partition_select::onPartitionClicked(disk_item *disk, partition_item *){
-    d_map_t::iterator i;
-    if(this->DiskMap->isEmpty() == false){
-        i = this->DiskMap->begin();
-        while(i != this->DiskMap->end()){
-            if(i.value() != disk)
-                i.value()->clearClickedStatus();
-            i++;
-        }
-    }
 }
 
 void partition_select::clearSelect(){
@@ -342,5 +345,71 @@ void partition_select::refreshSelect(){
             d_item->InsertPartitions(p_item);
         }
         this->insertDisk(d_item);
+    }
+}
+
+
+partition_controllor::partition_controllor(QWidget *parent):
+    QWidget(parent){
+    MainArea    = new QScrollArea(this);
+    Select      = new partition_select;
+    AddButton   = new QPushButton(this);
+    DelButton   = new QPushButton(this);
+    ChangeButton= new QPushButton(this);
+    MainArea->setWidget(Select);
+    MainArea->setGeometry(0,0,PARTED_WIDGET_WIDTH+16,400);
+    this->setMaximumSize(PARTED_WIDGET_WIDTH+15,470);
+    this->setMinimumSize(PARTED_WIDGET_WIDTH+15,470);
+    this->connect(Select,SIGNAL(diskClicked(disk_item*)),this,SLOT(onDiskClicked(disk_item*)));
+    this->connect(Select,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
+
+    DefaultFont.setPointSize(8);
+    this->AddButton->setFont(DefaultFont);
+    this->DelButton->setFont(DefaultFont);
+    this->ChangeButton->setFont(DefaultFont);
+
+    this->AddButton->setText(tr("New"));
+    this->DelButton->setText(tr("Del"));
+    this->ChangeButton->setText(tr("Change"));
+
+    this->AddButton->setGeometry(15,405,30,20);
+    this->ChangeButton->setGeometry(45,405,50,20);
+    this->DelButton->setGeometry(95,405,30,20);
+}
+
+partition_controllor::~partition_controllor(){
+    delete Select;
+    delete AddButton;
+    delete DelButton;
+    delete ChangeButton;
+    delete MainArea;
+}
+
+
+void partition_controllor::onDiskClicked(disk_item *){
+
+}
+
+void partition_controllor::onPartitionClicked(disk_item *, partition_item *Item){
+    this->currenlytSelected = Item->getPartition();
+    if(this->currenlytSelected->type & PED_PARTITION_FREESPACE){
+        this->AddButton->setDisabled(false);
+        this->DelButton->setDisabled(true);
+        this->ChangeButton->setDisabled(true);
+        return;
+    }
+    if(!this->currenlytSelected->fs_type->name){
+        this->AddButton->setDisabled(true);
+        this->DelButton->setDisabled(true);
+        this->ChangeButton->setDisabled(true);
+    }else{
+        this->AddButton->setDisabled(true);
+        this->DelButton->setDisabled(false);
+        if( strncmp(this->currenlytSelected->fs_type->name,"ext",   3)  == 0    ||
+            strncmp(this->currenlytSelected->fs_type->name,"ntfs",  4)  == 0    ||
+            strncmp(this->currenlytSelected->fs_type->name,"fat",   3)  == 0)
+            this->ChangeButton->setDisabled(false);
+        else
+            this->ChangeButton->setDisabled(true);
     }
 }

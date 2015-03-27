@@ -12,6 +12,8 @@
 #include <QFont>
 #include <QScrollArea>
 #include <QDebug>
+#include <QStyle>
+#include <QPushButton>
 
 #define PARTED_WIDGET_WIDTH             500
 #define PARTITION_HEIGTH                26
@@ -21,6 +23,7 @@
 #define PARTITION_MOUNT_POINT_LENGTH    120
 #define DISK_HEIGTH                     20
 #define PARTITION_SPACING               40
+#define DISK_SPACING                    25
 
 class partition_item : public QWidget{
     Q_OBJECT
@@ -33,7 +36,7 @@ public:
     PedPartition*   getPartition(void);
     PedDevice   *   getDevice(void);
 signals:
-    void        clicked(partition_item*);
+    void            clicked(partition_item*);
 private:
     QLabel      *Path;
     QLabel      *FsName;
@@ -59,11 +62,11 @@ public:
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
 signals:
-    void        ItemClicked(partition_item*);
-    void        diskClicked(disk_item*,bool spreaded);
-    void        partitionClicked(disk_item*,partition_item*);
+    void            ItemClicked(partition_item*);
+    void            diskClicked(disk_item*,bool spreaded);
+    void            partitionClicked(disk_item*,partition_item*);
 public slots:
-    void        onItemClicked(partition_item*);
+    void            onItemClicked(partition_item*);
 private:
     QLabel          *Title;
     QFont            TitleFont;
@@ -77,16 +80,38 @@ typedef QMap<int,disk_item*>        d_map_t;
 class partition_select : public QWidget{
     Q_OBJECT
 public:
-    explicit    partition_select(QWidget *parent = 0);
-    ~partition_select();
-    void        insertDisk(disk_item*,int order = -1);
+    explicit        partition_select(QWidget *parent = 0);
+                    ~partition_select();
+    void            insertDisk(disk_item*,int order = -1);
+signals:
+    void            diskClicked(disk_item*);
+    void            partitionClicked(disk_item*, partition_item*);
 public slots:
-    void        onDiskClicked(disk_item*,bool);
-    void        onPartitionClicked(disk_item*, partition_item*);
-    void        refreshSelect(void);
-    void        clearSelect(void);
+    void            onDiskClicked(disk_item*,bool);
+    void            onPartitionClicked(disk_item*, partition_item*);
+    void            refreshSelect(void);
+    void            clearSelect(void);
 private:
     d_map_t         *DiskMap;
+};
+
+
+class partition_controllor : public QWidget{
+    Q_OBJECT
+public:
+    explicit        partition_controllor(QWidget *parent = 0);
+                    ~partition_controllor();
+public slots:
+    void            onDiskClicked(disk_item*);
+    void            onPartitionClicked(disk_item*, partition_item*);
+private:
+    QScrollArea     *MainArea;
+    partition_select*Select;
+    QPushButton     *AddButton;
+    QPushButton     *DelButton;
+    QPushButton     *ChangeButton;
+    QFont           DefaultFont;
+    PedPartition    *currenlytSelected;
 };
 
 #endif // PARTED_WIDGET_H
