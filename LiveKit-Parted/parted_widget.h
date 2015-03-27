@@ -13,28 +13,33 @@
 #include <QScrollArea>
 #include <QDebug>
 
-#define PARTED_WIDGET_WIDTH     500
-#define PARTITION_HEIGTH        26
-#define PARTITION_PATH_LENGTH   150
-#define PARTITION_FS_NAME_LENGTH 100
-#define PARTITION_SIZE_LENGTH   80
-#define DISK_HEIGTH             20
+#define PARTED_WIDGET_WIDTH             500
+#define PARTITION_HEIGTH                26
+#define PARTITION_PATH_LENGTH           150
+#define PARTITION_FS_NAME_LENGTH        100
+#define PARTITION_SIZE_LENGTH           80
+#define PARTITION_MOUNT_POINT_LENGTH    120
+#define DISK_HEIGTH                     20
+#define PARTITION_SPACING               40
 
 class partition_item : public QWidget{
     Q_OBJECT
 public:
-    explicit    partition_item(QWidget *parent = 0,PedPartition *Part = NULL,PedDevice *Dev = NULL);
-    ~partition_item();
-    void        mousePressEvent(QMouseEvent *);
-    void        unClicked(void);
+    explicit        partition_item(QWidget *parent = 0,PedPartition *Part = NULL,PedDevice *Dev = NULL);
+                    ~partition_item();
+    void            mousePressEvent(QMouseEvent *);
+    void            unClicked(void);
+    void            set_partition(PedPartition *Part = NULL, PedDevice *Dev = NULL);
+    PedPartition*   getPartition(void);
+    PedDevice   *   getDevice(void);
 signals:
     void        clicked(partition_item*);
 private:
     QLabel      *Path;
     QLabel      *FsName;
     QLabel      *Size;
+    QLabel      *MountPoint;
     QFont        Font;
-    QHBoxLayout *MainLayout;
     PedPartition*Partition;
     PedDevice   *Device;
 };
@@ -43,13 +48,16 @@ typedef QMap<int,partition_item*>   p_map_t;
 class disk_item : public QWidget{
     Q_OBJECT
 public:
-    explicit    disk_item(QWidget *parent = 0, PedDisk *disk = NULL,PedDevice *dev = NULL);
-    ~disk_item();
-    void        InsertPartitions(partition_item* Item,int order = -1);
-    void        mousePressEvent(QMouseEvent *);
-    void        clearClickedStatus();
-    int         getSize(void);
-    bool        spreaded(void);
+    explicit        disk_item(QWidget *parent = 0, PedDisk *disk = NULL,PedDevice *dev = NULL);
+                    ~disk_item();
+    void            set_disk(PedDisk *disk = NULL, PedDevice *dev = NULL);
+    void            InsertPartitions(partition_item* Item,int order = -1);
+    void            mousePressEvent(QMouseEvent *);
+    void            clearClickedStatus();
+    int             getSize(void);
+    bool            spreaded(void);
+    PedDisk  *      getDisk(void);
+    PedDevice*      getDevice(void);
 signals:
     void        ItemClicked(partition_item*);
     void        diskClicked(disk_item*,bool spreaded);
@@ -59,8 +67,6 @@ public slots:
 private:
     QLabel          *Title;
     QFont            TitleFont;
-    QVBoxLayout     *MainLayout;
-    partition_item  *Item;
     p_map_t         *PartitionsMap;
     bool             shown;
     PedDisk         *Disk;
@@ -81,7 +87,6 @@ public slots:
     void        clearSelect(void);
 private:
     d_map_t         *DiskMap;
-    QVBoxLayout     *MainLayout;
 };
 
 #endif // PARTED_WIDGET_H
