@@ -407,7 +407,10 @@ void partition_controllor::onPartitionClicked(disk_item *, partition_item *Item)
         this->DelButton->setDisabled(false);
         if( strncmp(this->currenlytSelected->fs_type->name,"ext",   3)  == 0    ||
             strncmp(this->currenlytSelected->fs_type->name,"ntfs",  4)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"fat",   3)  == 0)
+            strncmp(this->currenlytSelected->fs_type->name,"fat",   3)  == 0    ||
+            strncmp(this->currenlytSelected->fs_type->name,"btrfs", 5)  == 0    ||
+            strncmp(this->currenlytSelected->fs_type->name,"xfs",   3)  == 0    ||
+            strncmp(this->currenlytSelected->fs_type->name,"f2fs",  4)  == 0)
             this->ChangeButton->setDisabled(false);
         else
             this->ChangeButton->setDisabled(true);
