@@ -94,9 +94,10 @@ disk_item::disk_item(QWidget *parent, PedDisk *disk, PedDevice *dev):
 
     this->Title->setGeometry(DISK_SPACING,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
 
-    TitleFont.setPixelSize(16);
+    TitleFont.setPixelSize(14);
     this->Title->setFont(TitleFont);
     this->Title->setText(tr("/dev/sda xxxx xxGB xxxxx"));
+    this->setStyleSheet("background-color:white;");
 
     this->resize(PARTED_WIDGET_WIDTH,0);
     this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH);
@@ -222,6 +223,7 @@ partition_select::partition_select(QWidget *parent):
     this->resize(PARTED_WIDGET_WIDTH,0);
     this->setWindowFlags(Qt::FramelessWindowHint);
     DiskMap     = new d_map_t;
+    this->setStyleSheet("background-color:white;");
     this->refreshSelect();
 
 }
@@ -357,9 +359,9 @@ partition_controllor::partition_controllor(QWidget *parent):
     DelButton   = new QPushButton(this);
     ChangeButton= new QPushButton(this);
     MainArea->setWidget(Select);
-    MainArea->setGeometry(0,0,PARTED_WIDGET_WIDTH+16,400);
-    this->setMaximumSize(PARTED_WIDGET_WIDTH+15,470);
-    this->setMinimumSize(PARTED_WIDGET_WIDTH+15,470);
+    MainArea->setGeometry(0,0,PARTED_WIDGET_WIDTH+16,PARTED_WIDGET_HEIGTH);
+    this->setMaximumSize(PARTED_WIDGET_WIDTH+15,PARTED_WIDGET_HEIGTH+70);
+    this->setMinimumSize(PARTED_WIDGET_WIDTH+15,PARTED_WIDGET_HEIGTH+70);
     this->connect(Select,SIGNAL(diskClicked(disk_item*)),this,SLOT(onDiskClicked(disk_item*)));
     this->connect(Select,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
 
@@ -371,10 +373,11 @@ partition_controllor::partition_controllor(QWidget *parent):
     this->AddButton->setText(tr("New"));
     this->DelButton->setText(tr("Del"));
     this->ChangeButton->setText(tr("Change"));
+    this->setStyleSheet("background-color:white;");
 
-    this->AddButton->setGeometry(15,405,30,20);
-    this->ChangeButton->setGeometry(45,405,50,20);
-    this->DelButton->setGeometry(95,405,30,20);
+    this->AddButton->setGeometry(15,PARTED_WIDGET_HEIGTH+5,30,20);
+    this->ChangeButton->setGeometry(45,PARTED_WIDGET_HEIGTH+5,50,20);
+    this->DelButton->setGeometry(95,PARTED_WIDGET_HEIGTH+5,30,20);
 }
 
 partition_controllor::~partition_controllor(){

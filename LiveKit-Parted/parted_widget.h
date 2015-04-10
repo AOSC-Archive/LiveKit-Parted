@@ -16,7 +16,8 @@
 #include <QPushButton>
 
 #define PARTED_WIDGET_WIDTH             500
-#define PARTITION_HEIGTH                26
+#define PARTED_WIDGET_HEIGTH            200
+#define PARTITION_HEIGTH                20
 #define PARTITION_PATH_LENGTH           150
 #define PARTITION_FS_NAME_LENGTH        100
 #define PARTITION_SIZE_LENGTH           80
