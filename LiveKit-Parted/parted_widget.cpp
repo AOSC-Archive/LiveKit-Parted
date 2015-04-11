@@ -366,7 +366,7 @@ void partition_select::clearSelect(){
 
 void partition_select::refreshSelect(){
     this->clearSelect();
-    PedDevice *dev = 0;
+    PedDevice       *dev = 0;
     disk_item       *d_item;
     partition_item  *p_item;
     PedDisk         *disk;
@@ -592,6 +592,7 @@ partition_controllor::partition_controllor(QWidget *parent):
     this->connect(Select,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
     this->connect(ChangeButton,SIGNAL(clicked()),this,SLOT(onModificationButtonClicked()));
     this->connect(modification_dialog,SIGNAL(MountPointChangeApplied(int)),this,SLOT(onMountPointChanged(int)));
+    this->connect(DelButton,SIGNAL(clicked()),this,SLOT(onDeleteButtonClicked()));
 
     DefaultFont.setPointSize(8);
     this->AddButton->setFont(DefaultFont);
@@ -656,6 +657,15 @@ void partition_controllor::onModificationButtonClicked(){
     modification_dialog->show();
 }
 
+void partition_controllor::onDeleteButtonClicked(){
+    PedPartition currentPartition;
+    memcpy(&currentPartition,this->currenlytSelected->getPartition(),sizeof(PedPartition));
+    Select->clearSelect();
+    printf("Deleting.....\n");
+    ped_disk_delete_partition(currentPartition.disk,&currentPartition);
+    printf("Delete Done..\n");
+    this->Select->refreshSelect();
+}
 
 void partition_controllor::onMountPointChanged(int MountPoint){
     this->currenlytSelected->setMountPoint(MountPoint);

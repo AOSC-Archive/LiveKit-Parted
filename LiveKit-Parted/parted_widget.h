@@ -167,6 +167,7 @@ public slots:
     void            onDiskClicked(disk_item*);
     void            onPartitionClicked(disk_item*, partition_item*);
     void            onModificationButtonClicked();
+    void            onDeleteButtonClicked();
     void            onMountPointChanged(int);
 private:
     QScrollArea     *MainArea;
