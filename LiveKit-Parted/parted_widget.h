@@ -14,6 +14,10 @@
 #include <QDebug>
 #include <QStyle>
 #include <QPushButton>
+#include <QComboBox>
+#include <QCheckBox>
+#include <QSpinBox>
+#include <QMessageBox>
 
 #define PARTED_WIDGET_WIDTH             500
 #define PARTED_WIDGET_HEIGTH            200
@@ -26,6 +30,24 @@
 #define PARTITION_SPACING               40
 #define DISK_SPACING                    25
 
+
+#define     INSTALLER_MOUNT_POINT_NONE  0
+#define     INSTALLER_MOUNT_POINT_ROOT  1
+#define     INSTALLER_MOUNT_POINT_HOME  2
+#define     INSTALLER_MOUNT_POINT_USR   3
+#define     INSTALLER_MOUNT_POINT_BOOT  4
+
+#define     INSTALLER_FILESYSTEM_NONE   -2
+#define     INSTALLER_FILESYSTEM_FREESPACE -1
+#define     INSTALLER_FILESYSTEM_EXT2   0
+#define     INSTALLER_FILESYSTEM_EXT3   1
+#define     INSTALLER_FILESYSTEM_EXT4   2
+#define     INSTALLER_FILESYSTEM_NTFS   3
+#define     INSTALLER_FILESYSTEM_FAT32  4
+
+#define     INSTALLER_WORKTYPE_ADD      1
+#define     INSTALLER_WORKTYPE_CHANGE   2
+
 class partition_item : public QWidget{
     Q_OBJECT
 public:
@@ -36,6 +58,8 @@ public:
     void            set_partition(PedPartition *Part = NULL, PedDevice *Dev = NULL);
     PedPartition*   getPartition(void);
     PedDevice   *   getDevice(void);
+    void            setMountPoint(int MountPointFlag);
+    int             getMountPoint(void);
 signals:
     void            clicked(partition_item*);
 private:
@@ -43,6 +67,7 @@ private:
     QLabel      *FsName;
     QLabel      *Size;
     QLabel      *MountPoint;
+    int          flagMountPoint;
     QFont        Font;
     PedPartition*Partition;
     PedDevice   *Device;
@@ -96,6 +121,42 @@ private:
     d_map_t         *DiskMap;
 };
 
+class partition_modification_dialog : public QWidget{
+    Q_OBJECT
+public:
+    explicit        partition_modification_dialog(QWidget *parent = 0);
+                   ~partition_modification_dialog();
+
+    void    SetCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device, int, int WorkType);
+signals:
+    void    MountPointChangeApplied(int);     // MountPoint;
+public slots:
+    void    ApplyButtonClicked(void);
+    void    CancelButtonClicked(void);
+    void    FileSystemSelectChanged(int);
+    void    FormatDone(int);
+private:
+    PedPartition     CurrentPartition;
+    PedDisk          CurrentDisk;
+    PedDevice        CurrentDevice;
+    int              OriginMountPoint;
+    int              OriginFileSystem;
+    int              WorkType;
+    QPushButton     *ApplyButton;
+    QPushButton     *CancelButton;
+    QLabel          *PartitionPath;
+    QLabel          *FileSystemLabel;
+    QLabel          *MountPointLabel;
+    QLabel          *DoFormatLabel;
+    QComboBox       *FileSystemSelect;
+    QComboBox       *MountPointSelect;
+    QCheckBox       *DoFormatCheckBox;
+    QSpinBox        *PartitionSize;
+    QLabel          *PartitionSizeLabel;
+
+    QString         CurrentFileSystem;
+    QString         CurrentMountPoint;
+};
 
 class partition_controllor : public QWidget{
     Q_OBJECT
@@ -105,6 +166,8 @@ public:
 public slots:
     void            onDiskClicked(disk_item*);
     void            onPartitionClicked(disk_item*, partition_item*);
+    void            onModificationButtonClicked();
+    void            onMountPointChanged(int);
 private:
     QScrollArea     *MainArea;
     partition_select*Select;
@@ -112,7 +175,8 @@ private:
     QPushButton     *DelButton;
     QPushButton     *ChangeButton;
     QFont           DefaultFont;
-    PedPartition    *currenlytSelected;
+    partition_item  *currenlytSelected;
+    partition_modification_dialog   *modification_dialog;
 };
 
 #endif // PARTED_WIDGET_H

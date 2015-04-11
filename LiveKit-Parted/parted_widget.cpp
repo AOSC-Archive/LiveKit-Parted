@@ -1,6 +1,10 @@
 #include "parted_widget.h"
 
-
+//
+// Partition Items
+//
+//
+//
 partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *Dev):
     QWidget(parent){
     this->Path      = new QLabel(this);
@@ -22,10 +26,12 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->Size->setGeometry(_x,0,PARTITION_SIZE_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_SIZE_LENGTH;
     this->MountPoint->setGeometry(_x,0,PARTITION_MOUNT_POINT_LENGTH,PARTITION_HEIGTH);
+    this->MountPoint->setText(tr("None"));
     this->setStyleSheet("background-color:white;");
     this->resize(PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
 
     this->set_partition(Part,Dev);
+    this->setMountPoint(INSTALLER_MOUNT_POINT_NONE);
 }
 
 partition_item::~partition_item(){
@@ -84,6 +90,31 @@ PedDevice* partition_item::getDevice(){
     return this->Device;
 }
 
+void partition_item::setMountPoint(int MountPointFlag){
+    this->flagMountPoint = MountPointFlag;
+    if(this->flagMountPoint == INSTALLER_MOUNT_POINT_BOOT)
+        this->MountPoint->setText(tr("/boot"));
+    else if(this->flagMountPoint == INSTALLER_MOUNT_POINT_HOME)
+        this->MountPoint->setText(tr("/home"));
+    else if(this->flagMountPoint == INSTALLER_MOUNT_POINT_NONE)
+        this->MountPoint->setText(tr(" "));
+    else if(this->flagMountPoint == INSTALLER_MOUNT_POINT_ROOT)
+        this->MountPoint->setText(tr("/"));
+    else if(this->flagMountPoint == INSTALLER_MOUNT_POINT_USR)
+        this->MountPoint->setText(tr("/usr"));
+    return;
+}
+
+int partition_item::getMountPoint(){
+    return this->flagMountPoint;
+}
+
+
+//
+// Disk Items
+//
+//
+//
 
 disk_item::disk_item(QWidget *parent, PedDisk *disk, PedDevice *dev):
     QWidget(parent){
@@ -218,6 +249,12 @@ PedDevice* disk_item::getDevice(){
 }
 
 
+//
+// Partition Select
+//
+//
+//
+
 partition_select::partition_select(QWidget *parent):
     QWidget(parent){
     this->resize(PARTED_WIDGET_WIDTH,0);
@@ -350,6 +387,193 @@ void partition_select::refreshSelect(){
     }
 }
 
+//
+// Partition Modification Dialog
+//
+//
+//
+
+partition_modification_dialog::partition_modification_dialog(QWidget *parent):
+    QWidget(parent){
+
+    this->setMinimumSize(300,200);
+    this->setMaximumSize(300,200);
+    this->setWindowTitle(tr("Change partition"));
+    ApplyButton     = new QPushButton(this);
+    CancelButton    = new QPushButton(this);
+    ApplyButton->setText(tr("Apply"));
+    CancelButton->setText(tr("Cancel"));
+    ApplyButton->setGeometry(160,160,60,30);
+    CancelButton->setGeometry(230,160,60,30);
+
+    FileSystemSelect = new QComboBox(this);
+    MountPointSelect = new QComboBox(this);
+    MountPointLabel  = new QLabel(this);
+    PartitionPath    = new QLabel(this);
+    FileSystemLabel  = new QLabel(this);
+    DoFormatLabel    = new QLabel(this);
+    PartitionSizeLabel=new QLabel(this);
+    DoFormatCheckBox = new QCheckBox(this);
+    PartitionSize    = new QSpinBox(this);
+
+    PartitionPath->setGeometry(35,10,200,20);
+    FileSystemLabel->setGeometry(35,40,95,20);
+    FileSystemSelect->setGeometry(130,40,75,20);
+    MountPointLabel->setGeometry(35,60,95,20);
+    MountPointSelect->setGeometry(130,60,75,20);
+    DoFormatLabel->setGeometry(35,80,75,20);
+    DoFormatCheckBox->setGeometry(130,80,110,20);
+    PartitionSizeLabel->setGeometry(35,100,75,20);
+    PartitionSize->setGeometry(130,100,75,20);
+
+
+    PartitionPath->setText(tr("Partition path: /dev/sda1"));
+    FileSystemLabel->setText(tr("Filesystem"));
+    MountPointLabel->setText(tr("Mount point"));
+    DoFormatLabel->setText(tr("Format"));
+
+    FileSystemSelect->addItem(tr("ext2"));
+    FileSystemSelect->addItem(tr("ext3"));
+    FileSystemSelect->addItem(tr("ext4"));
+    FileSystemSelect->addItem(tr("ntfs"));
+    FileSystemSelect->addItem(tr("fat32"));
+
+    MountPointSelect->addItem(tr("---"));
+    MountPointSelect->addItem(tr("/"));
+    MountPointSelect->addItem(tr("/home"));
+    MountPointSelect->addItem(tr("/usr"));
+    MountPointSelect->addItem(tr("/boot"));
+
+    PartitionSizeLabel->setText(tr("Size(MB)"));
+
+
+
+    this->connect(ApplyButton,SIGNAL(clicked()),this,SLOT(ApplyButtonClicked()));
+    this->connect(CancelButton,SIGNAL(clicked()),this,SLOT(CancelButtonClicked()));
+    this->connect(FileSystemSelect,SIGNAL(currentIndexChanged(int)),this,SLOT(FileSystemSelectChanged(int)));
+}
+
+partition_modification_dialog::~partition_modification_dialog(){
+    delete  ApplyButton;
+    delete  CancelButton;
+    delete  PartitionPath;
+    delete  FileSystemLabel;
+    delete  MountPointLabel;
+    delete  DoFormatLabel;
+    delete  FileSystemSelect;
+    delete  MountPointSelect;
+    delete  DoFormatCheckBox;
+    delete  PartitionSize;
+    delete  PartitionSizeLabel;
+}
+
+void partition_modification_dialog::SetCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device,int MountPoint, int _WorkType){
+    memcpy((void*)&CurrentPartition,(void*)&Partition,sizeof(PedPartition));
+    memcpy((void*)&CurrentDisk,(void*)&Disk,sizeof(PedDisk));
+    memcpy((void*)&CurrentDevice,(void*)&Device,sizeof(PedDevice));
+    WorkType = _WorkType;
+    OriginMountPoint =MountPoint;
+    char Name[64];
+    sprintf(Name,"%s :%s",tr("Partition path").toUtf8().data(),ped_partition_get_path(&Partition));
+    PartitionPath->setText(Name);
+    if(MountPoint > 0){
+        if(MountPoint == INSTALLER_MOUNT_POINT_ROOT){
+            MountPointSelect->insertItem(MountPoint,tr("/"));
+        }else if(MountPoint == INSTALLER_MOUNT_POINT_HOME){
+            MountPointSelect->insertItem(MountPoint,tr("/home"));
+        }else if(MountPoint == INSTALLER_MOUNT_POINT_USR){
+                    MountPointSelect->insertItem(MountPoint,tr("/usr"));
+        }else if(MountPoint == INSTALLER_MOUNT_POINT_BOOT){
+            MountPointSelect->insertItem(MountPoint,tr("/boot"));
+        }
+    }
+    MountPointSelect->setCurrentIndex(MountPoint);
+    PartitionSize->setRange(0,(CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024));
+    PartitionSize->setValue((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024));
+    if(WorkType == INSTALLER_WORKTYPE_ADD){
+        OriginFileSystem = INSTALLER_FILESYSTEM_FREESPACE;
+        FileSystemSelect->setCurrentIndex(INSTALLER_FILESYSTEM_EXT4);
+        return;
+    }else if(Partition.fs_type != NULL){
+        if(strcmp(Partition.fs_type->name,"ext2") == 0)          OriginFileSystem = INSTALLER_FILESYSTEM_EXT2;
+        else if(strcmp(Partition.fs_type->name,"ext3") == 0)     OriginFileSystem = INSTALLER_FILESYSTEM_EXT3;
+        else if(strcmp(Partition.fs_type->name,"ext4") == 0)     OriginFileSystem = INSTALLER_FILESYSTEM_EXT4;
+        else if(strcmp(Partition.fs_type->name,"ntfs") == 0)     OriginFileSystem = INSTALLER_FILESYSTEM_NTFS;
+        else if(strcmp(Partition.fs_type->name,"fat32")== 0)     OriginFileSystem = INSTALLER_FILESYSTEM_FAT32;
+        FileSystemSelect->setCurrentIndex(OriginFileSystem);
+    }else{
+        OriginFileSystem = INSTALLER_FILESYSTEM_NONE;
+        FileSystemSelect->setCurrentIndex(INSTALLER_FILESYSTEM_EXT4);
+    }
+}
+
+
+void partition_modification_dialog::FormatDone(int Status){
+    if(Status != 0){
+        QMessageBox::warning(this,tr("Warning"),tr("Format failure!"),QMessageBox::Yes);
+    }else{
+        QMessageBox::information(this,tr("Information"),tr("Format success!"),QMessageBox::Yes);
+    }
+    this->close();
+}
+
+void partition_modification_dialog::ApplyButtonClicked(){
+    QString MountPoint = MountPointSelect->currentText();
+    int MountPointFlag = INSTALLER_MOUNT_POINT_NONE;
+    if(MountPoint == "---")
+        MountPointFlag = INSTALLER_MOUNT_POINT_NONE;
+    else if(MountPoint == "/home")
+        MountPointFlag = INSTALLER_MOUNT_POINT_HOME;
+    else if(MountPoint == "/boot")
+        MountPointFlag = INSTALLER_MOUNT_POINT_BOOT;
+    else if(MountPoint == "/")
+        MountPointFlag = INSTALLER_MOUNT_POINT_ROOT;
+    else if(MountPoint == "/usr")
+        MountPointFlag = INSTALLER_MOUNT_POINT_USR;
+    emit MountPointChangeApplied(MountPointFlag);
+    if(MountPointSelect->currentIndex()>0){
+        MountPointSelect->removeItem(MountPointSelect->currentIndex());
+    }
+    if(DoFormatCheckBox->isChecked() == false){
+        this->close();
+    }else{
+        if(WorkType == INSTALLER_WORKTYPE_ADD){
+            PedPartition *NewPartition;
+            PedFileSystemType *fstype = ped_file_system_type_get("msdos");
+            int ToEnd = (((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024) - PartitionSize->value()))
+                                                                *(1024*1024)/CurrentDevice.sector_size;
+            NewPartition = ped_partition_new(&CurrentDisk,PED_PARTITION_NORMAL,fstype,CurrentPartition.geom.start,CurrentPartition.geom.end - ToEnd);
+            if(NewPartition)
+                ped_disk_add_partition(&CurrentDisk,NewPartition,ped_constraint_exact(&NewPartition->geom));
+            return;
+        }
+    }
+}
+
+void partition_modification_dialog::CancelButtonClicked(){
+    if(OriginMountPoint > 0){
+        MountPointSelect->removeItem(OriginMountPoint);
+    }
+    this->close();
+}
+
+void partition_modification_dialog::FileSystemSelectChanged(int Now){
+    if(Now != OriginFileSystem){
+        DoFormatCheckBox->setDisabled(true);
+        DoFormatCheckBox->setChecked(true);
+    }else{
+        DoFormatCheckBox->setDisabled(false);
+    }
+}
+
+
+
+//
+// Partition Controllor
+//
+//
+//
+
 
 partition_controllor::partition_controllor(QWidget *parent):
     QWidget(parent){
@@ -358,12 +582,16 @@ partition_controllor::partition_controllor(QWidget *parent):
     AddButton   = new QPushButton(this);
     DelButton   = new QPushButton(this);
     ChangeButton= new QPushButton(this);
+    modification_dialog =   new partition_modification_dialog;
+    modification_dialog->hide();
     MainArea->setWidget(Select);
     MainArea->setGeometry(0,0,PARTED_WIDGET_WIDTH+16,PARTED_WIDGET_HEIGTH);
     this->setMaximumSize(PARTED_WIDGET_WIDTH+15,PARTED_WIDGET_HEIGTH+70);
     this->setMinimumSize(PARTED_WIDGET_WIDTH+15,PARTED_WIDGET_HEIGTH+70);
     this->connect(Select,SIGNAL(diskClicked(disk_item*)),this,SLOT(onDiskClicked(disk_item*)));
     this->connect(Select,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
+    this->connect(ChangeButton,SIGNAL(clicked()),this,SLOT(onModificationButtonClicked()));
+    this->connect(modification_dialog,SIGNAL(MountPointChangeApplied(int)),this,SLOT(onMountPointChanged(int)));
 
     DefaultFont.setPointSize(8);
     this->AddButton->setFont(DefaultFont);
@@ -386,6 +614,7 @@ partition_controllor::~partition_controllor(){
     delete DelButton;
     delete ChangeButton;
     delete MainArea;
+    delete modification_dialog;
 }
 
 
@@ -394,28 +623,40 @@ void partition_controllor::onDiskClicked(disk_item *){
 }
 
 void partition_controllor::onPartitionClicked(disk_item *, partition_item *Item){
-    this->currenlytSelected = Item->getPartition();
-    if(this->currenlytSelected->type & PED_PARTITION_FREESPACE){
+    this->currenlytSelected = Item;
+    PedPartition *currentPartition = Item->getPartition();
+    if(currentPartition->type & PED_PARTITION_FREESPACE){
         this->AddButton->setDisabled(false);
         this->DelButton->setDisabled(true);
         this->ChangeButton->setDisabled(true);
         return;
     }
-    if(!this->currenlytSelected->fs_type->name){
+    if(!currentPartition->fs_type->name){
         this->AddButton->setDisabled(true);
         this->DelButton->setDisabled(true);
         this->ChangeButton->setDisabled(true);
     }else{
         this->AddButton->setDisabled(true);
         this->DelButton->setDisabled(false);
-        if( strncmp(this->currenlytSelected->fs_type->name,"ext",   3)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"ntfs",  4)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"fat",   3)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"btrfs", 5)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"xfs",   3)  == 0    ||
-            strncmp(this->currenlytSelected->fs_type->name,"f2fs",  4)  == 0)
+        if( strncmp(currentPartition->fs_type->name,"ext",   3)  == 0    ||
+            strncmp(currentPartition->fs_type->name,"ntfs",  4)  == 0    ||
+            strncmp(currentPartition->fs_type->name,"fat",   3)  == 0    ||
+            strncmp(currentPartition->fs_type->name,"btrfs", 5)  == 0    ||
+            strncmp(currentPartition->fs_type->name,"xfs",   3)  == 0    ||
+            strncmp(currentPartition->fs_type->name,"f2fs",  4)  == 0)
             this->ChangeButton->setDisabled(false);
         else
             this->ChangeButton->setDisabled(true);
     }
+}
+
+void partition_controllor::onModificationButtonClicked(){
+    PedPartition *currentPartition = this->currenlytSelected->getPartition();
+    modification_dialog->SetCurrentPartition(*currentPartition,*currentPartition->disk,*this->currenlytSelected->getDevice(),this->currenlytSelected->getMountPoint(),INSTALLER_WORKTYPE_CHANGE);
+    modification_dialog->show();
+}
+
+
+void partition_controllor::onMountPointChanged(int MountPoint){
+    this->currenlytSelected->setMountPoint(MountPoint);
 }
