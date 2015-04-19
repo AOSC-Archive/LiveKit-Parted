@@ -11,6 +11,8 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->FsName    = new QLabel(this);
     this->Size      = new QLabel(this);
     this->MountPoint= new QLabel(this);
+    this->prev      = NULL;
+    this->next      = NULL;
     this->Font.setPointSize(10);
     this->Path->setFont(this->Font);
     this->FsName->setFont(this->Font);
@@ -69,6 +71,26 @@ void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
             this->FsName->setText(tr(this->Partition->fs_type->name));
             this->Path->setText(tr(ped_partition_get_path(Partition)));
         }
+    }else if(Part != NULL && Dev == NULL){
+        memcpy(this->Partition,Part,sizeof(PedPartition));
+        char TmpBuffer[64] = {0};
+        long long partition_size = (Partition->geom.length * Device->sector_size)/1024;
+        if(partition_size < 1024)
+            sprintf(TmpBuffer,"%lld KB",partition_size);
+        else if(partition_size < 1024*1024)
+            sprintf(TmpBuffer,"%lld MB",partition_size/(1024));
+        else if(partition_size < 1024*1024*1024)
+            sprintf(TmpBuffer,"%lld GB",partition_size/(1024*1024));
+        else
+            sprintf(TmpBuffer,"%lld TB",partition_size/(1024*1024*1024));
+        this->Size->setText(tr(TmpBuffer));
+        if(this->Partition->type & PED_PARTITION_FREESPACE){
+            this->FsName->setText(tr("Free Space"));
+            this->Path->setText(tr("Free Space"));
+        }else{
+            this->FsName->setText(tr(this->Partition->fs_type->name));
+            this->Path->setText(tr(ped_partition_get_path(Partition)));
+        }
     }
     return;
 }
@@ -84,6 +106,14 @@ void partition_item::unClicked(){
 
 PedPartition* partition_item::getPartition(){
     return this->Partition;
+}
+
+partition_item* partition_item::getPrev(){
+    return this->prev;
+}
+
+partition_item* partition_item::getNext(){
+    return this->next;
 }
 
 PedDevice* partition_item::getDevice(){
@@ -107,6 +137,14 @@ void partition_item::setMountPoint(int MountPointFlag){
 
 int partition_item::getMountPoint(){
     return this->flagMountPoint;
+}
+
+void partition_item::setPrev(partition_item *s){
+    this->prev = s;
+}
+
+void partition_item::setNext(partition_item *s){
+    this->next = s;
 }
 
 
@@ -218,6 +256,15 @@ void disk_item::InsertPartitions(partition_item *Item,int order){
         order = this->PartitionsMap->size();
     Item->setParent(this);
     this->PartitionsMap->insert(order,Item);
+    Item->setNext(NULL);
+    if(this->PartitionsMap->size() == 0){
+        Item->setPrev(NULL);
+    }else{
+        p_map_t::iterator i = this->PartitionsMap->end();
+        i--;
+        i.value()->setNext(Item);
+        Item->setPrev(i.value());
+    }
     Item->setGeometry(PARTITION_SPACING,DISK_HEIGTH+(PartitionsMap->size()-1)*PARTITION_HEIGTH,PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
     this->resize(this->width(),this->height()+PARTITION_HEIGTH);
     this->connect(Item,SIGNAL(clicked(partition_item*)),this,SLOT(onItemClicked(partition_item*)));
@@ -234,6 +281,39 @@ void disk_item::onItemClicked(partition_item *item){
         }
     }
     emit partitionClicked(this,item);
+}
+
+void disk_item::removeItem(partition_item *Item){
+    bool Found = false;
+    p_map_t::iterator i;
+    if(this->PartitionsMap->isEmpty() == false){
+        i = this->PartitionsMap->begin();
+        while(i != this->PartitionsMap->end()){
+            if(i.value() == Item){
+                Found = true;
+                break;
+            }
+            i++;
+        }
+    }
+    int key = i.key();
+    i++;
+    this->PartitionsMap->remove(key);
+    if(Found == false)
+        return;
+    if(Item->getPrev() != NULL)
+        Item->getPrev()->setNext(Item->getNext());
+    if(Item->getNext() != NULL)
+        Item->getNext()->setPrev(Item->getPrev());
+    QRect location;
+    while(i != this->PartitionsMap->end()){
+        location = i.value()->geometry();
+        location.setY(location.y() - PARTITION_HEIGTH);
+        i.value()->setGeometry(location);
+        i++;
+    }
+    Item->hide();
+    return;
 }
 
 bool disk_item::spreaded(){
@@ -350,6 +430,28 @@ void partition_select::insertDisk(disk_item *Item, int order){
     this->connect(Item,SIGNAL(diskClicked(disk_item*,bool)),this,SLOT(onDiskClicked(disk_item*,bool)));
     this->connect(Item,SIGNAL(partitionClicked(disk_item*,partition_item*)),this,SLOT(onPartitionClicked(disk_item*,partition_item*)));
     Item->show();
+    return;
+}
+
+void partition_select::removePartitionFromDisk(partition_item *item, disk_item *disk){
+    disk->removeItem(item);
+    d_map_t::iterator i;
+    if(this->DiskMap->isEmpty() == false){
+        i = this->DiskMap->begin();
+        while(i != this->DiskMap->end()){
+            if(i.value() == disk)
+                break;
+            i++;
+        }
+    }
+    QRect location;
+    i++;
+    while(i != this->DiskMap->end()){
+        location = i.value()->geometry();
+        location.setY(location.y()-PARTITION_HEIGTH);
+        i.value()->setGeometry(location);
+        i++;
+    }
     return;
 }
 
@@ -623,8 +725,9 @@ void partition_controllor::onDiskClicked(disk_item *){
 
 }
 
-void partition_controllor::onPartitionClicked(disk_item *, partition_item *Item){
-    this->currenlytSelected = Item;
+void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *Item){
+    this->currenlytSelectedPartition    = Item;
+    this->currentlySelectedDisk         = disk;
     PedPartition *currentPartition = Item->getPartition();
     if(currentPartition->type & PED_PARTITION_FREESPACE){
         this->AddButton->setDisabled(false);
@@ -652,21 +755,31 @@ void partition_controllor::onPartitionClicked(disk_item *, partition_item *Item)
 }
 
 void partition_controllor::onModificationButtonClicked(){
-    PedPartition *currentPartition = this->currenlytSelected->getPartition();
-    modification_dialog->SetCurrentPartition(*currentPartition,*currentPartition->disk,*this->currenlytSelected->getDevice(),this->currenlytSelected->getMountPoint(),INSTALLER_WORKTYPE_CHANGE);
+    PedPartition *currentPartition = this->currenlytSelectedPartition->getPartition();
+    modification_dialog->SetCurrentPartition(*currentPartition,*currentPartition->disk,*this->currenlytSelectedPartition->getDevice(),this->currenlytSelectedPartition->getMountPoint(),INSTALLER_WORKTYPE_CHANGE);
     modification_dialog->show();
 }
 
 void partition_controllor::onDeleteButtonClicked(){
-    PedPartition currentPartition;
-    memcpy(&currentPartition,this->currenlytSelected->getPartition(),sizeof(PedPartition));
-    Select->clearSelect();
-    printf("Deleting.....\n");
-    ped_disk_delete_partition(currentPartition.disk,&currentPartition);
-    printf("Delete Done..\n");
-    this->Select->refreshSelect();
+    PedPartition *currentPartition = new PedPartition;
+    memcpy(currentPartition,this->currenlytSelectedPartition->getPartition(),sizeof(PedPartition));
+    currentPartition->type = PED_PARTITION_FREESPACE;
+    this->currenlytSelectedPartition->set_partition(currentPartition);
+    if(this->currenlytSelectedPartition->getNext() != NULL){
+        if(this->currenlytSelectedPartition->getNext()->getPartition()->type & PED_PARTITION_FREESPACE){
+
+        }
+    }
+    if(this->currenlytSelectedPartition->getPrev() != NULL){
+        if(this->currenlytSelectedPartition->getPrev()->getPartition()->type & PED_PARTITION_FREESPACE){
+
+        }
+    }
+    this->Select->removePartitionFromDisk(this->currenlytSelectedPartition,this->currentlySelectedDisk);
+    delete currentPartition;
+    currentPartition = NULL;
 }
 
 void partition_controllor::onMountPointChanged(int MountPoint){
-    this->currenlytSelected->setMountPoint(MountPoint);
+    this->currenlytSelectedPartition->setMountPoint(MountPoint);
 }

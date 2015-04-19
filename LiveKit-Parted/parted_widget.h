@@ -57,20 +57,26 @@ public:
     void            unClicked(void);
     void            set_partition(PedPartition *Part = NULL, PedDevice *Dev = NULL);
     PedPartition*   getPartition(void);
+    partition_item* getPrev(void);
+    partition_item* getNext(void);
     PedDevice   *   getDevice(void);
     void            setMountPoint(int MountPointFlag);
+    void            setPrev(partition_item*);
+    void            setNext(partition_item*);
     int             getMountPoint(void);
 signals:
     void            clicked(partition_item*);
 private:
-    QLabel      *Path;
-    QLabel      *FsName;
-    QLabel      *Size;
-    QLabel      *MountPoint;
-    int          flagMountPoint;
-    QFont        Font;
-    PedPartition*Partition;
-    PedDevice   *Device;
+    QLabel          *Path;
+    QLabel          *FsName;
+    QLabel          *Size;
+    QLabel          *MountPoint;
+    int              flagMountPoint;
+    QFont            Font;
+    PedPartition    *Partition;
+    PedDevice       *Device;
+    partition_item  *prev;
+    partition_item  *next;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
@@ -83,6 +89,7 @@ public:
     void            InsertPartitions(partition_item* Item,int order = -1);
     void            mousePressEvent(QMouseEvent *);
     void            clearClickedStatus();
+    void            removeItem(partition_item*);
     int             getSize(void);
     bool            spreaded(void);
     PedDisk  *      getDisk(void);
@@ -109,6 +116,7 @@ public:
     explicit        partition_select(QWidget *parent = 0);
                     ~partition_select();
     void            insertDisk(disk_item*,int order = -1);
+    void            removePartitionFromDisk(partition_item*,disk_item*);
 signals:
     void            diskClicked(disk_item*);
     void            partitionClicked(disk_item*, partition_item*);
@@ -176,7 +184,8 @@ private:
     QPushButton     *DelButton;
     QPushButton     *ChangeButton;
     QFont           DefaultFont;
-    partition_item  *currenlytSelected;
+    partition_item  *currenlytSelectedPartition;
+    disk_item       *currentlySelectedDisk;
     partition_modification_dialog   *modification_dialog;
 };
 
