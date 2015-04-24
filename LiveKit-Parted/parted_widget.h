@@ -102,6 +102,7 @@ public:
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
     partition_item* getNextPartition(partition_item* Item = NULL);
+    partition_item* getPrevPartition(partition_item* Item = NULL);
 signals:
     void            ItemClicked(partition_item*);
     void            diskClicked(disk_item*,bool spreaded);
