@@ -316,6 +316,25 @@ void disk_item::removeItem(partition_item *Item){
     return;
 }
 
+partition_item* disk_item::getNextPartition(partition_item *Item){
+    if(this->PartitionsMap->isEmpty())
+        return NULL;
+    if(Item == NULL)
+        return this->PartitionsMap->begin().value();
+    p_map_t::iterator i;
+    i = this->PartitionsMap->begin();
+    while(i != this->PartitionsMap->end()){
+        if(i.value() == Item){
+            i++;
+            if(i != this->PartitionsMap->end())
+                return i.value();
+            else
+                return NULL;
+        }
+    }
+    return NULL;
+}
+
 bool disk_item::spreaded(){
     return shown;
 }

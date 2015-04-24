@@ -18,35 +18,41 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QMessageBox>
+#include <stdint.h>
 
-#define PARTED_WIDGET_WIDTH             500
-#define PARTED_WIDGET_HEIGTH            200
-#define PARTITION_HEIGTH                20
-#define PARTITION_PATH_LENGTH           150
-#define PARTITION_FS_NAME_LENGTH        100
-#define PARTITION_SIZE_LENGTH           80
-#define PARTITION_MOUNT_POINT_LENGTH    120
-#define DISK_HEIGTH                     20
-#define PARTITION_SPACING               40
-#define DISK_SPACING                    25
+#define     PARTED_WIDGET_WIDTH             500
+#define     PARTED_WIDGET_HEIGTH            200
+#define     PARTITION_HEIGTH                20
+#define     PARTITION_PATH_LENGTH           150
+#define     PARTITION_FS_NAME_LENGTH        100
+#define     PARTITION_SIZE_LENGTH           80
+#define     PARTITION_MOUNT_POINT_LENGTH    120
+#define     DISK_HEIGTH                     20
+#define     PARTITION_SPACING               40
+#define     DISK_SPACING                    25
 
 
-#define     INSTALLER_MOUNT_POINT_NONE  0
-#define     INSTALLER_MOUNT_POINT_ROOT  1
-#define     INSTALLER_MOUNT_POINT_HOME  2
-#define     INSTALLER_MOUNT_POINT_USR   3
-#define     INSTALLER_MOUNT_POINT_BOOT  4
+#define     INSTALLER_MOUNT_POINT_NONE      0
+#define     INSTALLER_MOUNT_POINT_ROOT      1
+#define     INSTALLER_MOUNT_POINT_HOME      2
+#define     INSTALLER_MOUNT_POINT_USR       3
+#define     INSTALLER_MOUNT_POINT_BOOT      4
 
-#define     INSTALLER_FILESYSTEM_NONE   -2
-#define     INSTALLER_FILESYSTEM_FREESPACE -1
-#define     INSTALLER_FILESYSTEM_EXT2   0
-#define     INSTALLER_FILESYSTEM_EXT3   1
-#define     INSTALLER_FILESYSTEM_EXT4   2
-#define     INSTALLER_FILESYSTEM_NTFS   3
-#define     INSTALLER_FILESYSTEM_FAT32  4
+#define     INSTALLER_FILESYSTEM_NONE       -2
+#define     INSTALLER_FILESYSTEM_FREESPACE  -1
+#define     INSTALLER_FILESYSTEM_EXT2       0
+#define     INSTALLER_FILESYSTEM_EXT3       1
+#define     INSTALLER_FILESYSTEM_EXT4       2
+#define     INSTALLER_FILESYSTEM_NTFS       3
+#define     INSTALLER_FILESYSTEM_FAT32      4
 
-#define     INSTALLER_WORKTYPE_ADD      1
-#define     INSTALLER_WORKTYPE_CHANGE   2
+#define     INSTALLER_WORKTYPE_ADD          1
+#define     INSTALLER_WORKTYPE_CHANGE       2
+
+#define     PARTITION_DELETED               0x0001
+#define     PARTITION_NEW                   0x0110
+#define     PARTITION_FORMAT                0x0100
+#define     PARTITION_CHANGED               0x1000
 
 class partition_item : public QWidget{
     Q_OBJECT
@@ -77,6 +83,7 @@ private:
     PedDevice       *Device;
     partition_item  *prev;
     partition_item  *next;
+    u_int16_t        Flag;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
@@ -94,6 +101,7 @@ public:
     bool            spreaded(void);
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
+    partition_item* getNextPartition(partition_item* Item = NULL);
 signals:
     void            ItemClicked(partition_item*);
     void            diskClicked(disk_item*,bool spreaded);
