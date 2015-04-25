@@ -11,6 +11,7 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->FsName    = new QLabel(this);
     this->Size      = new QLabel(this);
     this->MountPoint= new QLabel(this);
+    this->doFormat  = new QCheckBox(this);
     this->prev      = NULL;
     this->next      = NULL;
     this->Font.setPointSize(10);
@@ -20,6 +21,7 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->Path->setText(tr("/dev/sda12"));
     this->FsName->setText(tr("EXT3"));
     this->Size->setText(tr("100G"));
+    this->Flag      = 0x0000;
     int _x = 0;
     this->Path->setGeometry(0,0,PARTITION_PATH_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_PATH_LENGTH;
@@ -27,10 +29,13 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     _x+=PARTITION_FS_NAME_LENGTH;
     this->Size->setGeometry(_x,0,PARTITION_SIZE_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_SIZE_LENGTH;
+    this->doFormat->setGeometry(_x,0,PARTITION_FORMAT_LENGTH,PARTITION_HEIGTH);
+    _x+=PARTITION_FORMAT_LENGTH;
     this->MountPoint->setGeometry(_x,0,PARTITION_MOUNT_POINT_LENGTH,PARTITION_HEIGTH);
     this->MountPoint->setText(tr("None"));
     this->setStyleSheet("background-color:white;");
     this->resize(PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
+    this->connect(this->doFormat,SIGNAL(clicked(bool)),this,SLOT(onFormatCheckBoxClicked(bool)));
 
     this->set_partition(Part,Dev);
     this->setMountPoint(INSTALLER_MOUNT_POINT_NONE);
@@ -45,6 +50,7 @@ partition_item::~partition_item(){
     delete  this->FsName;
     delete  this->Size;
     delete  this->MountPoint;
+    delete  this->doFormat;
 }
 
 void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
@@ -120,6 +126,20 @@ PedDevice* partition_item::getDevice(){
     return this->Device;
 }
 
+void partition_item::onFormatCheckBoxClicked(bool status){
+    if(status == true){
+        this->Flag = this->Flag | PARTITION_FORMAT;
+        this->formatStatus = PARTITION_DO_FORMAT;
+    }else{
+        this->Flag = this->Flag ^ PARTITION_FORMAT;
+        this->formatStatus = PARTITION_DONT_FORMAT;
+    }
+}
+
+int partition_item::getFormatStatus(){
+    return this->formatStatus;
+}
+
 void partition_item::setMountPoint(int MountPointFlag){
     this->flagMountPoint = MountPointFlag;
     if(this->flagMountPoint == INSTALLER_MOUNT_POINT_BOOT)
@@ -133,6 +153,27 @@ void partition_item::setMountPoint(int MountPointFlag){
     else if(this->flagMountPoint == INSTALLER_MOUNT_POINT_USR)
         this->MountPoint->setText(tr("/usr"));
     return;
+}
+
+void partition_item::setFormatStatus(int status){
+    this->formatStatus = status;
+    if(this->formatStatus == PARTITION_FORCE_FORMAT){
+        this->doFormat->setDisabled(true);
+        this->doFormat->setChecked(true);
+        this->Flag = this->Flag | PARTITION_FORMAT;
+    }else if(this->formatStatus == PARTITION_DO_FORMAT){
+        this->doFormat->setDisabled(false);
+        this->doFormat->setChecked(true);
+        this->Flag = this->Flag | PARTITION_FORMAT;
+    }else if(this->formatStatus == PARTITION_DONT_FORMAT){
+        this->doFormat->setDisabled(false);
+        this->doFormat->setChecked(false);
+        this->Flag = this->Flag ^ PARTITION_FORMAT;
+    }else if(this->formatStatus == PARTITION_CANNOT_FORMAT){
+        this->doFormat->setDisabled(true);
+        this->doFormat->setChecked(false);
+        this->Flag = this->Flag ^ PARTITION_FORMAT;
+    }
 }
 
 int partition_item::getMountPoint(){
@@ -324,43 +365,12 @@ void disk_item::removeItem(partition_item *Item){
 partition_item* disk_item::getNextPartition(partition_item *Item){
     if(this->PartitionsMap->isEmpty())
         return NULL;
-    if(Item == this->PartitionsMap->end().value())
-        return NULL;
     if(Item == NULL)
         return this->PartitionsMap->begin().value();
-    p_map_t::iterator i;
-    i = this->PartitionsMap->begin();
-    while(i != this->PartitionsMap->end()){
-        if(i.value() == Item){
-            i++;
-            if(i != this->PartitionsMap->end())
-                return i.value();
-            else
-                return NULL;
-        }
-        i++;
-    }
-    return NULL;
+    else
+        return Item->getNext();
 }
 
-partition_item* disk_item::getPrevPartition(partition_item *Item){
-    if(this->PartitionsMap->isEmpty())
-        return NULL;
-    if(Item == NULL)
-        return NULL;
-    if(Item == this->PartitionsMap->begin().value())
-        return NULL;
-    p_map_t::iterator i;
-    i = this->PartitionsMap->begin();
-    while(i != this->PartitionsMap->end()){
-        if(i.value() == Item){
-            i--;
-            return i.value();
-        }
-        i++;
-    }
-    return NULL;
-}
 
 bool disk_item::spreaded(){
     return shown;
@@ -615,12 +625,12 @@ partition_modification_dialog::~partition_modification_dialog(){
     delete  PartitionSizeLabel;
 }
 
-void partition_modification_dialog::SetCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device,int MountPoint, int _WorkType){
+void partition_modification_dialog::setCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device,int MountPoint, int _WorkType, int _formatStatus){
     memcpy((void*)&CurrentPartition,(void*)&Partition,sizeof(PedPartition));
     memcpy((void*)&CurrentDisk,(void*)&Disk,sizeof(PedDisk));
     memcpy((void*)&CurrentDevice,(void*)&Device,sizeof(PedDevice));
-    WorkType = _WorkType;
-    OriginMountPoint =MountPoint;
+    WorkType        = _WorkType;
+    OriginMountPoint= MountPoint;
     char Name[64];
     sprintf(Name,"%s :%s",tr("Partition path").toUtf8().data(),ped_partition_get_path(&Partition));
     PartitionPath->setText(Name);
@@ -634,6 +644,16 @@ void partition_modification_dialog::SetCurrentPartition(PedPartition Partition, 
         }else if(MountPoint == INSTALLER_MOUNT_POINT_BOOT){
             MountPointSelect->insertItem(MountPoint,tr("/boot"));
         }
+    }
+    this->DoFormatCheckBox->setDisabled(false);
+    this->DoFormatCheckBox->setChecked(false);
+    if(_formatStatus == PARTITION_FORCE_FORMAT){
+        this->DoFormatCheckBox->setChecked(true);
+        this->DoFormatCheckBox->setDisabled(true);
+    }else if(_formatStatus == PARTITION_DO_FORMAT){
+        this->DoFormatCheckBox->setChecked(true);
+    }else{
+        this->DoFormatCheckBox->setChecked(false);
     }
     MountPointSelect->setCurrentIndex(MountPoint);
     PartitionSize->setRange(0,(CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024));
@@ -679,23 +699,22 @@ void partition_modification_dialog::ApplyButtonClicked(){
     else if(MountPoint == "/usr")
         MountPointFlag = INSTALLER_MOUNT_POINT_USR;
     emit MountPointChangeApplied(MountPointFlag);
-    if(MountPointSelect->currentIndex()>0){
+    if(MountPointSelect->currentIndex()>0)
         MountPointSelect->removeItem(MountPointSelect->currentIndex());
+    if(WorkType == INSTALLER_WORKTYPE_ADD){
+        PedPartition *NewPartition;
+        PedFileSystemType *fstype = ped_file_system_type_get("msdos");
+        int ToEnd = (((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024) - PartitionSize->value()))
+                                                            *(1024*1024)/CurrentDevice.sector_size;
+        NewPartition = ped_partition_new(&CurrentDisk,PED_PARTITION_NORMAL,fstype,CurrentPartition.geom.start,CurrentPartition.geom.end - ToEnd);
+        if(NewPartition)
+            ped_disk_add_partition(&CurrentDisk,NewPartition,ped_constraint_exact(&NewPartition->geom));
+        emit this->FormatStatusChanged(PARTITION_FORCE_FORMAT);
+    }else if(WorkType == INSTALLER_WORKTYPE_CHANGE){
+        if(this->DoFormatCheckBox->isEnabled() == false)
+            emit this->FormatStatusChanged(PARTITION_FORCE_FORMAT);
     }
-    if(DoFormatCheckBox->isChecked() == false){
-        this->close();
-    }else{
-        if(WorkType == INSTALLER_WORKTYPE_ADD){
-            PedPartition *NewPartition;
-            PedFileSystemType *fstype = ped_file_system_type_get("msdos");
-            int ToEnd = (((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024) - PartitionSize->value()))
-                                                                *(1024*1024)/CurrentDevice.sector_size;
-            NewPartition = ped_partition_new(&CurrentDisk,PED_PARTITION_NORMAL,fstype,CurrentPartition.geom.start,CurrentPartition.geom.end - ToEnd);
-            if(NewPartition)
-                ped_disk_add_partition(&CurrentDisk,NewPartition,ped_constraint_exact(&NewPartition->geom));
-            return;
-        }
-    }
+    this->close();
 }
 
 void partition_modification_dialog::CancelButtonClicked(){
@@ -741,6 +760,7 @@ partition_controllor::partition_controllor(QWidget *parent):
     this->connect(ChangeButton,SIGNAL(clicked()),this,SLOT(onModificationButtonClicked()));
     this->connect(modification_dialog,SIGNAL(MountPointChangeApplied(int)),this,SLOT(onMountPointChanged(int)));
     this->connect(DelButton,SIGNAL(clicked()),this,SLOT(onDeleteButtonClicked()));
+    this->connect(AddButton,SIGNAL(clicked()),this,SLOT(onAddButtonClicked()));
 
     DefaultFont.setPointSize(8);
     this->AddButton->setFont(DefaultFont);
@@ -772,7 +792,7 @@ void partition_controllor::onDiskClicked(disk_item *){
 }
 
 void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *Item){
-    this->currenlytSelectedPartition    = Item;
+    this->currentlySelectedPartition    = Item;
     this->currentlySelectedDisk         = disk;
     PedPartition *currentPartition = Item->getPartition();
     if(currentPartition->type & PED_PARTITION_FREESPACE){
@@ -801,38 +821,51 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
 }
 
 void partition_controllor::onModificationButtonClicked(){
-    PedPartition *currentPartition = this->currenlytSelectedPartition->getPartition();
-    modification_dialog->SetCurrentPartition(*currentPartition,*currentPartition->disk,*this->currenlytSelectedPartition->getDevice(),this->currenlytSelectedPartition->getMountPoint(),INSTALLER_WORKTYPE_CHANGE);
+    PedPartition *currentPartition = this->currentlySelectedPartition->getPartition();
+    modification_dialog->setCurrentPartition(*currentPartition,*currentPartition->disk,*this->currentlySelectedPartition->getDevice(),this->currentlySelectedPartition->getMountPoint(),INSTALLER_WORKTYPE_CHANGE,this->currentlySelectedPartition->getFormatStatus());
     modification_dialog->show();
 }
 
 void partition_controllor::onDeleteButtonClicked(){
     PedPartition *currentPartition  = new PedPartition;
     PedPartition *deletedPartition  = new PedPartition;
-    memcpy(currentPartition,this->currenlytSelectedPartition->getPartition(),sizeof(PedPartition));
+    memcpy(currentPartition,this->currentlySelectedPartition->getPartition(),sizeof(PedPartition));
     currentPartition->type = PED_PARTITION_FREESPACE;
-    if(this->currenlytSelectedPartition->getNext() != NULL){
-        if(this->currenlytSelectedPartition->getNext()->getPartition()->type == PED_PARTITION_FREESPACE){
-            this->currenlytSelectedPartition->getPartition()->geom.end = this->currenlytSelectedPartition->getNext()->getPartition()->geom.end;
-            currentPartition->geom.length   = this->currenlytSelectedPartition->getPartition()->geom.length + this->currenlytSelectedPartition->getNext()->getPartition()->geom.length;
-            currentPartition->geom.end      = this->currenlytSelectedPartition->getNext()->getPartition()->geom.end;
-            this->Select->removePartitionFromDisk(this->currenlytSelectedPartition->getNext(),this->currentlySelectedDisk);
+    if(this->currentlySelectedPartition->getNext() != NULL){
+        if(this->currentlySelectedPartition->getNext()->getPartition()->type == PED_PARTITION_FREESPACE){
+            this->currentlySelectedPartition->getPartition()->geom.end = this->currentlySelectedPartition->getNext()->getPartition()->geom.end;
+            currentPartition->geom.length   = this->currentlySelectedPartition->getPartition()->geom.length + this->currentlySelectedPartition->getNext()->getPartition()->geom.length;
+            currentPartition->geom.end      = this->currentlySelectedPartition->getNext()->getPartition()->geom.end;
+            this->Select->removePartitionFromDisk(this->currentlySelectedPartition->getNext(),this->currentlySelectedDisk);
         }
     }
-    if(this->currenlytSelectedPartition->getPrev() != NULL){
-        if(this->currenlytSelectedPartition->getPrev()->getPartition()->type ==  PED_PARTITION_FREESPACE){
-            currentPartition->geom.length   = this->currenlytSelectedPartition->getPartition()->geom.length + this->currenlytSelectedPartition->getPrev()->getPartition()->geom.length;
-            currentPartition->geom.start    = this->currenlytSelectedPartition->getPrev()->getPartition()->geom.start;
-            this->Select->removePartitionFromDisk(this->currenlytSelectedPartition->getPrev(),this->currentlySelectedDisk);
+    if(this->currentlySelectedPartition->getPrev() != NULL){
+        if(this->currentlySelectedPartition->getPrev()->getPartition()->type ==  PED_PARTITION_FREESPACE){
+            currentPartition->geom.length   = this->currentlySelectedPartition->getPartition()->geom.length + this->currentlySelectedPartition->getPrev()->getPartition()->geom.length;
+            currentPartition->geom.start    = this->currentlySelectedPartition->getPrev()->getPartition()->geom.start;
+            this->Select->removePartitionFromDisk(this->currentlySelectedPartition->getPrev(),this->currentlySelectedDisk);
         }
     }
-    this->currenlytSelectedPartition->set_partition(currentPartition);
+    this->currentlySelectedPartition->Flag  = PARTITION_DELETED;
+    this->currentlySelectedPartition->setFormatStatus(PARTITION_CANNOT_FORMAT);
+    this->currentlySelectedPartition->set_partition(currentPartition);
     delete currentPartition;
     delete deletedPartition;
     currentPartition = NULL;
     deletedPartition = NULL;
 }
 
+void partition_controllor::onAddButtonClicked(){
+    PedPartition *currentPartition = this->currentlySelectedPartition->getPartition();
+    modification_dialog->setCurrentPartition(*currentPartition,*currentPartition->disk,*this->currentlySelectedPartition->getDevice(),this->currentlySelectedPartition->getMountPoint(),INSTALLER_WORKTYPE_ADD,this->currentlySelectedPartition->getFormatStatus());
+    modification_dialog->show();
+}
+
 void partition_controllor::onMountPointChanged(int MountPoint){
-    this->currenlytSelectedPartition->setMountPoint(MountPoint);
+    this->currentlySelectedPartition->setMountPoint(MountPoint);
+}
+
+
+void partition_controllor::onFormatStatusChanged(int status){
+    this->currentlySelectedPartition->setFormatStatus(status);
 }

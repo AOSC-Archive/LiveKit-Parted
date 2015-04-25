@@ -20,12 +20,13 @@
 #include <QMessageBox>
 #include <stdint.h>
 
-#define     PARTED_WIDGET_WIDTH             500
+#define     PARTED_WIDGET_WIDTH             550
 #define     PARTED_WIDGET_HEIGTH            200
 #define     PARTITION_HEIGTH                20
 #define     PARTITION_PATH_LENGTH           150
 #define     PARTITION_FS_NAME_LENGTH        100
 #define     PARTITION_SIZE_LENGTH           80
+#define     PARTITION_FORMAT_LENGTH         120
 #define     PARTITION_MOUNT_POINT_LENGTH    120
 #define     DISK_HEIGTH                     20
 #define     PARTITION_SPACING               40
@@ -54,6 +55,11 @@
 #define     PARTITION_FORMAT                0x0100
 #define     PARTITION_CHANGED               0x1000
 
+#define     PARTITION_FORCE_FORMAT          0x0003
+#define     PARTITION_DO_FORMAT             0x0002
+#define     PARTITION_DONT_FORMAT           0x0001
+#define     PARTITION_CANNOT_FORMAT         0x0000
+
 class partition_item : public QWidget{
     Q_OBJECT
 public:
@@ -67,23 +73,29 @@ public:
     partition_item* getNext(void);
     PedDevice   *   getDevice(void);
     void            setMountPoint(int MountPointFlag);
+    void            setFormatStatus(int);
     void            setPrev(partition_item*);
     void            setNext(partition_item*);
     int             getMountPoint(void);
+    int             getFormatStatus(void);
+    u_int16_t       Flag;
 signals:
     void            clicked(partition_item*);
+public slots:
+    void            onFormatCheckBoxClicked(bool);
 private:
     QLabel          *Path;
     QLabel          *FsName;
     QLabel          *Size;
     QLabel          *MountPoint;
+    QCheckBox       *doFormat;
     int              flagMountPoint;
+    int              formatStatus;
     QFont            Font;
     PedPartition    *Partition;
     PedDevice       *Device;
     partition_item  *prev;
     partition_item  *next;
-    u_int16_t        Flag;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
@@ -102,7 +114,6 @@ public:
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
     partition_item* getNextPartition(partition_item* Item = NULL);
-    partition_item* getPrevPartition(partition_item* Item = NULL);
 signals:
     void            ItemClicked(partition_item*);
     void            diskClicked(disk_item*,bool spreaded);
@@ -144,9 +155,11 @@ public:
     explicit        partition_modification_dialog(QWidget *parent = 0);
                    ~partition_modification_dialog();
 
-    void    SetCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device, int, int WorkType);
+    void    setCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device, int, int WorkType,int _formatStatus);
 signals:
     void    MountPointChangeApplied(int);     // MountPoint;
+    void    FormatStatusChanged(int);
+    void    FilesystemChanged(int);
 public slots:
     void    ApplyButtonClicked(void);
     void    CancelButtonClicked(void);
@@ -183,9 +196,11 @@ public:
 public slots:
     void            onDiskClicked(disk_item*);
     void            onPartitionClicked(disk_item*, partition_item*);
-    void            onModificationButtonClicked();
-    void            onDeleteButtonClicked();
+    void            onModificationButtonClicked(void);
+    void            onDeleteButtonClicked(void);
+    void            onAddButtonClicked(void);
     void            onMountPointChanged(int);
+    void            onFormatStatusChanged(int);
 private:
     QScrollArea     *MainArea;
     partition_select*Select;
@@ -193,7 +208,7 @@ private:
     QPushButton     *DelButton;
     QPushButton     *ChangeButton;
     QFont           DefaultFont;
-    partition_item  *currenlytSelectedPartition;
+    partition_item  *currentlySelectedPartition;
     disk_item       *currentlySelectedDisk;
     partition_modification_dialog   *modification_dialog;
 };
