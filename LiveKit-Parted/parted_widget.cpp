@@ -11,6 +11,7 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->FsName    = new QLabel(this);
     this->Size      = new QLabel(this);
     this->MountPoint= new QLabel(this);
+    this->PartitionType=new QLabel(this);
     this->doFormat  = new QCheckBox(this);
     this->prev      = NULL;
     this->next      = NULL;
@@ -22,9 +23,12 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->FsName->setText(tr("EXT3"));
     this->Size->setText(tr("100G"));
     this->Flag      = 0x0000;
+    this->height    = PARTITION_HEIGTH;
     int _x = 0;
     this->Path->setGeometry(0,0,PARTITION_PATH_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_PATH_LENGTH;
+    this->PartitionType->setGeometry(_x,0,PARTITION_TYPE_LENGTH,PARTITION_HEIGTH);
+    _x+=PARTITION_TYPE_LENGTH;
     this->FsName->setGeometry(_x,0,PARTITION_FS_NAME_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_FS_NAME_LENGTH;
     this->Size->setGeometry(_x,0,PARTITION_SIZE_LENGTH,PARTITION_HEIGTH);
@@ -51,6 +55,7 @@ partition_item::~partition_item(){
     delete  this->Size;
     delete  this->MountPoint;
     delete  this->doFormat;
+    delete  this->PartitionType;
 }
 
 void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
@@ -70,13 +75,39 @@ void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
         else
             sprintf(TmpBuffer,"%lld TB",partition_size/(1024*1024*1024));
         this->Size->setText(tr(TmpBuffer));
+        if(this->Partition->type & PED_PARTITION_METADATA){
+            this->FsName->setText(tr("None"));
+            this->Path->setText(tr("None"));
+            this->PartitionType->setText(tr("Metadata"));
+            return;
+        }
+        if(this->Partition->type == PED_PARTITION_LOGICAL){
+            this->PartitionType->setText(tr("Logical"));
+            this->FsName->setText(tr(this->Partition->fs_type->name));
+        }
+        if(this->Partition->type == PED_PARTITION_NORMAL){
+            this->PartitionType->setText(tr("Normal"));
+            this->FsName->setText(tr(this->Partition->fs_type->name));
+        }
+        if(this->Partition->type == PED_PARTITION_EXTENDED){
+            this->PartitionType->setText(tr("Extent"));
+            this->FsName->setText(tr("None"));
+        }
+        if(this->Partition->type == PED_PARTITION_PROTECTED){
+            this->PartitionType->setText(tr("Protected"));
+        }
         if(this->Partition->type & PED_PARTITION_FREESPACE){
             this->FsName->setText(tr("Free Space"));
             this->Path->setText(tr("Free Space"));
-        }else{
-            this->FsName->setText(tr(this->Partition->fs_type->name));
-            this->Path->setText(tr(ped_partition_get_path(Partition)));
+            if(this->Partition->type == PED_PARTITION_FREESPACE + PED_PARTITION_LOGICAL){
+                this->PartitionType->setText(tr("Logical Freespace"));
+            }else{
+                this->PartitionType->setText(tr("Freespace"));
+            }
+            return;
         }
+        this->Path->setText(tr(ped_partition_get_path(Partition)));
+        printf("Path = %s \t\t Type = %d\n",ped_partition_get_path(this->Partition),this->Partition->type);
     }else if(Part != NULL && Dev == NULL){
         memcpy(this->Partition,Part,sizeof(PedPartition));
         char TmpBuffer[64] = {0};
@@ -178,6 +209,10 @@ void partition_item::setFormatStatus(int status){
 
 int partition_item::getMountPoint(){
     return this->flagMountPoint;
+}
+
+int partition_item::getHeight(){
+    return this->height;
 }
 
 void partition_item::setPrev(partition_item *s){
@@ -301,7 +336,7 @@ void disk_item::InsertPartitions(partition_item *Item,int order){
         Item->setNext(NULL);
         this->PartitionsMap->insert(order,Item);
         Item->setGeometry(PARTITION_SPACING,DISK_HEIGTH+(PartitionsMap->size()-1)*PARTITION_HEIGTH,PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
-        this->resize(this->width(),this->height()+PARTITION_HEIGTH);
+        this->resize(this->width(),this->height()+Item->getHeight());
         this->connect(Item,SIGNAL(clicked(partition_item*)),this,SLOT(onItemClicked(partition_item*)));
         return;
     }
@@ -312,7 +347,7 @@ void disk_item::InsertPartitions(partition_item *Item,int order){
     i.value()->setNext(Item);
     Item->setPrev(i.value());
     Item->setGeometry(PARTITION_SPACING,DISK_HEIGTH+(PartitionsMap->size()-1)*PARTITION_HEIGTH,PARTED_WIDGET_WIDTH,PARTITION_HEIGTH);
-    this->resize(this->width(),this->height()+PARTITION_HEIGTH);
+    this->resize(this->width(),this->height()+Item->getHeight());
     this->connect(Item,SIGNAL(clicked(partition_item*)),this,SLOT(onItemClicked(partition_item*)));
     return;
 }
@@ -534,8 +569,8 @@ void partition_select::refreshSelect(){
         part = 0;
         d_item = new disk_item(this,disk,dev);
         while((part = ped_disk_next_partition(disk, part))){
-            if ((part->type & PED_PARTITION_METADATA) || (part->type & PED_PARTITION_EXTENDED))
-                continue;
+            //if ((part->type & PED_PARTITION_METADATA))
+            //    continue;
             p_item = NULL;
             p_item = new partition_item;
             p_item->set_partition(part,dev);
@@ -798,6 +833,18 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
     if(currentPartition->type & PED_PARTITION_FREESPACE){
         this->AddButton->setDisabled(false);
         this->DelButton->setDisabled(true);
+        this->ChangeButton->setDisabled(true);
+        return;
+    }
+    if(currentPartition->type & PED_PARTITION_METADATA){
+        this->DelButton->setDisabled(true);
+        this->AddButton->setDisabled(true);
+        this->ChangeButton->setDisabled(true);
+        return;
+    }
+    if(currentPartition->type & PED_PARTITION_EXTENDED){
+        this->DelButton->setDisabled(false);
+        this->AddButton->setDisabled(true);
         this->ChangeButton->setDisabled(true);
         return;
     }

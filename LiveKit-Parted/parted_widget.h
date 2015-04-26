@@ -21,9 +21,10 @@
 #include <stdint.h>
 
 #define     PARTED_WIDGET_WIDTH             550
-#define     PARTED_WIDGET_HEIGTH            200
+#define     PARTED_WIDGET_HEIGTH            300
 #define     PARTITION_HEIGTH                20
-#define     PARTITION_PATH_LENGTH           150
+#define     PARTITION_PATH_LENGTH           100
+#define     PARTITION_TYPE_LENGTH           130
 #define     PARTITION_FS_NAME_LENGTH        100
 #define     PARTITION_SIZE_LENGTH           80
 #define     PARTITION_FORMAT_LENGTH         120
@@ -55,10 +56,12 @@
 #define     PARTITION_FORMAT                0x0100
 #define     PARTITION_CHANGED               0x1000
 
-#define     PARTITION_FORCE_FORMAT          0x0003
-#define     PARTITION_DO_FORMAT             0x0002
-#define     PARTITION_DONT_FORMAT           0x0001
-#define     PARTITION_CANNOT_FORMAT         0x0000
+#define     PARTITION_FORCE_FORMAT          0x0F
+#define     PARTITION_DO_FORMAT             0x01
+#define     PARTITION_DONT_FORMAT           0x02
+#define     PARTITION_CANNOT_FORMAT         0x03
+#define     PARTITION_MAIN                  0x10
+#define     PARTITION_LOGICAL               0x20
 
 class partition_item : public QWidget{
     Q_OBJECT
@@ -78,7 +81,8 @@ public:
     void            setNext(partition_item*);
     int             getMountPoint(void);
     int             getFormatStatus(void);
-    u_int16_t       Flag;
+    int             getHeight(void);
+    u_int8_t        Flag;
 signals:
     void            clicked(partition_item*);
 public slots:
@@ -88,6 +92,7 @@ private:
     QLabel          *FsName;
     QLabel          *Size;
     QLabel          *MountPoint;
+    QLabel          *PartitionType;
     QCheckBox       *doFormat;
     int              flagMountPoint;
     int              formatStatus;
@@ -96,6 +101,7 @@ private:
     PedDevice       *Device;
     partition_item  *prev;
     partition_item  *next;
+    int              height;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
