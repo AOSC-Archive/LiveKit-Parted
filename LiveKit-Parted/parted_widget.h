@@ -83,6 +83,8 @@ public:
     int             getFormatStatus(void);
     int             getHeight(void);
     u_int8_t        Flag;
+    int             shown;
+    int             subShown;
 signals:
     void            clicked(partition_item*);
 public slots:
@@ -104,6 +106,13 @@ private:
     int              height;
 };
 
+class extended_partition_item : public partition_item{
+    Q_OBJECT
+public:
+    explicit        extended_partition_item(QWidget *parent = 0, PedPartition *Part = NULL, PedDevice *Dev = NULL);
+                    ~extended_partition_item();
+};
+
 typedef QMap<int,partition_item*>   p_map_t;
 class disk_item : public QWidget{
     Q_OBJECT
@@ -115,7 +124,10 @@ public:
     void            mousePressEvent(QMouseEvent *);
     void            clearClickedStatus();
     void            removeItem(partition_item*);
+    void            hideItem(partition_item*);
+    void            showItem(partition_item*);
     int             getSize(void);
+    int             getHeight(void);
     bool            spreaded(void);
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
@@ -143,6 +155,7 @@ public:
                     ~partition_select();
     void            insertDisk(disk_item*,int order = -1);
     void            removePartitionFromDisk(partition_item*,disk_item*);
+    void            refreshSize(void);
 signals:
     void            diskClicked(disk_item*);
     void            partitionClicked(disk_item*, partition_item*);
