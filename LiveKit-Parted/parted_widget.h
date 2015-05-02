@@ -22,15 +22,16 @@
 #include <QMessageBox>
 #include <stdint.h>
 
-#define     PARTED_WIDGET_WIDTH             550
+#define     PARTED_WIDGET_WIDTH             650
 #define     PARTED_WIDGET_HEIGTH            300
 #define     PARTITION_HEIGTH                20
-#define     PARTITION_PATH_LENGTH           100
+#define     PARTITION_PATH_LENGTH           150
 #define     PARTITION_TYPE_LENGTH           130
 #define     PARTITION_FS_NAME_LENGTH        100
 #define     PARTITION_SIZE_LENGTH           80
 #define     PARTITION_FORMAT_LENGTH         120
 #define     PARTITION_MOUNT_POINT_LENGTH    120
+#define     PARTITION_LOGICAL_SPACING       15
 #define     DISK_HEIGTH                     20
 #define     PARTITION_SPACING               40
 #define     DISK_SPACING                    25
@@ -81,12 +82,14 @@ public:
     void            setFormatStatus(int);
     void            setPrev(partition_item*);
     void            setNext(partition_item*);
+    void            setExtendedParent(partition_item*);
     int             getMountPoint(void);
     int             getFormatStatus(void);
     int             getHeight(void);
     u_int8_t        Flag;
     int             shown;
     int             subShown;
+    int             partition_set;
 signals:
     void            clicked(partition_item*);
 public slots:
@@ -106,13 +109,7 @@ private:
     partition_item  *prev;
     partition_item  *next;
     int              height;
-};
-
-class extended_partition_item : public partition_item{
-    Q_OBJECT
-public:
-    explicit        extended_partition_item(QWidget *parent = 0, PedPartition *Part = NULL, PedDevice *Dev = NULL);
-                    ~extended_partition_item();
+    partition_item  *extendedParent;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
