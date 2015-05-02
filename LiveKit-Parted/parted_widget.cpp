@@ -88,7 +88,7 @@ void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
             this->FsName->setText(tr(this->Partition->fs_type->name));
         }
         if(this->Partition->type == PED_PARTITION_NORMAL){
-            this->PartitionType->setText(tr("Normal"));
+            this->PartitionType->setText(tr("Primary"));
             if(this->Partition->fs_type)
                 this->FsName->setText(tr(this->Partition->fs_type->name));
         }
@@ -455,36 +455,39 @@ void disk_item::hideItem(partition_item *Item){
         i.value()->setGeometry(location);
         i++;
     }
-    Item->hide();
+    Item->setVisible(false);
     Item->shown = 0;
     return;
 }
 
 void disk_item::showItem(partition_item *Item){
-    bool Found = false;
-    p_map_t::iterator i;
-    if(this->PartitionsMap->isEmpty() == false){
-        i = this->PartitionsMap->begin();
-        while(i != this->PartitionsMap->end()){
-            if(i.value() == Item){
-                Found = true;
-                break;
-            }
-            i++;
-        }
+    partition_item *prev;
+    partition_item *next;
+    prev = Item->getPrev();
+    while(prev){
+        if(prev->shown == 1)
+           break;
+        prev = prev->getPrev();
     }
-    i++;
-    if(Found == false)
-        return;
     QRect location;
-    while(i != this->PartitionsMap->end()){
-        location = i.value()->geometry();
-        location.setY(location.y() + PARTITION_HEIGTH);
-        i.value()->setGeometry(location);
-        i++;
+    location = prev->geometry();
+    location.setY(location.y()+prev->getHeight());
+    location.setHeight(Item->getHeight());
+    Item->show();
+    Item->setGeometry(location);
+    next = Item->getNext();
+    while(next != NULL){
+        if(next->shown == 0){
+            next = next->getNext();
+            continue;
+        }
+        location = next->geometry();
+        location.setY(location.y() + Item->getHeight());
+        next->setGeometry(location);
+        next = next->getNext();
     }
-    Item->hide();
     Item->shown = 1;
+    Item->setVisible(true);
     return;
 }
 
@@ -949,21 +952,23 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
         while(1){
             logical = logical->getNext();
             if(currentlySelectedPartition->subShown == 1){
-                if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE)){
+                if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE))
                     this->currentlySelectedDisk->hideItem(logical);
-                    this->Select->refreshSize();
-                }else{
-                    return;
-                }
+                else
+                    break;
             }else{
-                if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE)){
+                if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE))
                     this->currentlySelectedDisk->showItem(logical);
-                    this->Select->refreshSize();
-                }else{
-                    return;
-                }
+                else
+                    break;
             }
         }
+        if(currentlySelectedPartition->subShown == 1)
+            currentlySelectedPartition->subShown = 0;
+        else
+            currentlySelectedPartition->subShown = 1;
+        this->Select->refreshSize();
+        return;
     }
     if(currentPartition->type & PED_PARTITION_FREESPACE){
         this->AddButton->setDisabled(false);

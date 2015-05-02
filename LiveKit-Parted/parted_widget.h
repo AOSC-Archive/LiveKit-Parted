@@ -1,7 +1,9 @@
 #ifndef PARTED_WIDGET_H
 #define PARTED_WIDGET_H
 
+#ifdef linux
 #include <parted/parted.h>
+#endif
 #include <QScrollArea>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
