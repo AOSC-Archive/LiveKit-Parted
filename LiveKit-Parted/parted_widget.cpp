@@ -329,7 +329,6 @@ void disk_item::mousePressEvent(QMouseEvent *){
                 i++;
             }
         }
-        this->shown = false;
     }else{
         this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH+(this->PartitionsMap->size())*PARTITION_HEIGTH);
         if(this->PartitionsMap->isEmpty() == false){
@@ -340,8 +339,8 @@ void disk_item::mousePressEvent(QMouseEvent *){
                 i++;
             }
         }
-        this->shown = true;
     }
+    this->shown = !this->shown;
     emit diskClicked(this,this->shown);
 }
 
@@ -570,43 +569,8 @@ partition_select::~partition_select(){
     delete DiskMap;
 }
 
-void partition_select::onDiskClicked(disk_item *Item, bool spreaded){
-    d_map_t::iterator i;
-    bool found = false;
-    QRect locale;
-    int h_change    = 0;
-    int h_temp      = 0;
-    if(spreaded)
-        h_change = Item->getHeight()-DISK_HEIGTH;
-    else
-        h_change = -1*(Item->getHeight() - DISK_HEIGTH);
-    this->resize(this->width(),this->height()+h_change);
-    if(this->DiskMap->isEmpty() == false){
-        i = this->DiskMap->begin();
-        while(i != this->DiskMap->end()){
-            if(i.value() == Item){
-                found = true;
-                break;
-            }
-            i++;
-        }
-        if(found == true){
-            i++;
-            while(i != this->DiskMap->end()){
-                locale = i.value()->geometry();
-                locale.setY(locale.y()+h_change);
-                h_temp = DISK_HEIGTH;
-                if(i.value()->spreaded())
-                    h_temp += i.value()->getHeight()-DISK_HEIGTH;
-                locale.setHeight(h_temp);
-                locale.setWidth(PARTED_WIDGET_WIDTH);
-                i.value()->setGeometry(locale);
-                i++;
-            }
-        }
-    }
-    if(found)
-        emit this->diskClicked(Item);
+void partition_select::onDiskClicked(disk_item *, bool){
+    this->refreshSize();
 }
 
 
