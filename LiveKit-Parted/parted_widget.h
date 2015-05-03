@@ -127,6 +127,7 @@ public:
     void            showItem(partition_item*);
     int             getSize(void);
     int             getHeight(void);
+    int             getVisibleHeight(void);
     bool            spreaded(void);
     PedDisk  *      getDisk(void);
     PedDevice*      getDevice(void);
