@@ -88,7 +88,7 @@ public:
     int             getHeight(void);
     u_int8_t        Flag;
     int             shown;
-    int             subShown;
+    bool            subShown;
     int             partition_set;
 signals:
     void            clicked(partition_item*);

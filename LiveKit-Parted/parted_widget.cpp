@@ -674,7 +674,7 @@ void partition_select::refreshSelect(){
             p_item = NULL;
             p_item = new partition_item;
             p_item->set_partition(part,dev);
-            p_item->subShown = 1;
+            p_item->subShown = true;
             p_item->shown    = 1;
             d_item->InsertPartitions(p_item);
         }
@@ -931,12 +931,11 @@ void partition_controllor::onDiskClicked(disk_item *){
 void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *Item){
     this->currentlySelectedPartition    = Item;
     this->currentlySelectedDisk         = disk;
-    PedPartition *currentPartition = Item->getPartition();
+    PedPartition *currentPartition      = Item->getPartition();
     if(currentlySelectedPartition->getPartition()->type == PED_PARTITION_EXTENDED){
         partition_item *logical = currentlySelectedPartition;
-        while(1){
-            logical = logical->getNext();
-            if(currentlySelectedPartition->subShown == 1){
+        while(logical = logical->getNext()){
+            if(currentlySelectedPartition->subShown){
                 if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE))
                     this->currentlySelectedDisk->hideItem(logical);
                 else
@@ -948,10 +947,7 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
                     break;
             }
         }
-        if(currentlySelectedPartition->subShown == 1)
-            currentlySelectedPartition->subShown = 0;
-        else
-            currentlySelectedPartition->subShown = 1;
+        currentlySelectedPartition->subShown = !currentlySelectedPartition->subShown;
         this->Select->refreshSize();
         return;
     }
