@@ -19,4 +19,7 @@ SOURCES +=  main.cpp            \
 HEADERS  += mainwindow.h        \
             parted_widget.h
 
+RESOURCES += \
+    resources/image.qrc
+
 LIBS += -lparted

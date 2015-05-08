@@ -13,6 +13,7 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->MountPoint= new QLabel(this);
     this->PartitionType=new QLabel(this);
     this->doFormat      = new QCheckBox(this);
+    this->Icon          = new QLabel(this);
     this->prev          = NULL;
     this->next          = NULL;
     this->Font.setPointSize(10);
@@ -28,7 +29,17 @@ partition_item::partition_item(QWidget *parent, PedPartition *Part, PedDevice *D
     this->extendedParent= NULL;
     int _x              = 0;
     this->shown         = 1;
-    this->Path->setGeometry(0,0,PARTITION_PATH_LENGTH,PARTITION_HEIGTH);
+    this->pixSize.setHeight(12);
+    this->pixSize.setWidth(12);
+
+    image.load("://image//expand.png");
+    pix.convertFromImage(image);
+    pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+    this->Icon->setPixmap(pix);
+    this->Icon->setVisible(false);
+    this->Icon->setGeometry(0,0,12,PARTITION_HEIGTH);
+    _x+=12;
+    this->Path->setGeometry(_x,0,PARTITION_PATH_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_PATH_LENGTH;
     this->PartitionType->setGeometry(_x,0,PARTITION_TYPE_LENGTH,PARTITION_HEIGTH);
     _x+=PARTITION_TYPE_LENGTH;
@@ -102,6 +113,7 @@ void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
         if(this->Partition->type == PED_PARTITION_EXTENDED){
             this->PartitionType->setText(tr("Extent"));
             this->FsName->setText(tr("None"));
+            this->Icon->setVisible(true);
         }
         if(this->Partition->type == PED_PARTITION_PROTECTED){
             this->PartitionType->setText(tr("Protected"));
@@ -146,6 +158,17 @@ void partition_item::set_partition(PedPartition *Part, PedDevice *Dev){
 
 void partition_item::mousePressEvent(QMouseEvent *){
     this->setStyleSheet("background-color:#B0B0B0");
+    if(this->subShown){
+        image.load("://image//collapsed.png");
+        pix.convertFromImage(image);
+        pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+        this->Icon->setPixmap(pix);
+    }else{
+        image.load("://image//expand.png");
+        pix.convertFromImage(image);
+        pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+        this->Icon->setPixmap(pix);
+    }
     emit this->clicked(this);
 }
 
@@ -255,10 +278,18 @@ disk_item::disk_item(QWidget *parent, PedDisk *disk, PedDevice *dev):
     QWidget(parent){
     this->setWindowFlags(Qt::FramelessWindowHint);
     this->Title     = new QLabel(this);
+    this->Icon      = new QLabel(this);
     this->shown     = true;
+    this->pixSize.setHeight(16);
+    this->pixSize.setWidth(16);
     PartitionsMap   = new p_map_t;
 
-    this->Title->setGeometry(DISK_SPACING,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
+    image.load("://image//expand.png");
+    pix.convertFromImage(image);
+    pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+    this->Icon->setPixmap(pix);
+    this->Icon->setGeometry(4,0,16,DISK_HEIGTH);
+    this->Title->setGeometry(DISK_SPACING+20,0,PARTED_WIDGET_WIDTH,DISK_HEIGTH);
 
     TitleFont.setPixelSize(14);
     this->Title->setFont(TitleFont);
@@ -320,6 +351,10 @@ int  disk_item::getSize(){
 
 void disk_item::mousePressEvent(QMouseEvent *){
     if (this->shown){
+        image.load("://image//collapsed.png");
+        pix.convertFromImage(image);
+        pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+        this->Icon->setPixmap(pix);
         this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH);
         if(this->PartitionsMap->isEmpty() == false){
             p_map_t::iterator i = this->PartitionsMap->begin();
@@ -330,6 +365,10 @@ void disk_item::mousePressEvent(QMouseEvent *){
             }
         }
     }else{
+        image.load("://image//expand.png");
+        pix.convertFromImage(image);
+        pix = pix.scaled(pixSize,Qt::KeepAspectRatio);
+        this->Icon->setPixmap(pix);
         this->resize(PARTED_WIDGET_WIDTH,DISK_HEIGTH+(this->PartitionsMap->size())*PARTITION_HEIGTH);
         if(this->PartitionsMap->isEmpty() == false){
             p_map_t::iterator i = this->PartitionsMap->begin();
@@ -569,8 +608,16 @@ partition_select::~partition_select(){
     delete DiskMap;
 }
 
-void partition_select::onDiskClicked(disk_item *, bool){
+void partition_select::onDiskClicked(disk_item *item, bool){
     this->refreshSize();
+    if(this->DiskMap->isEmpty() == false){
+        d_map_t::iterator i = this->DiskMap->begin();
+        while(i != this->DiskMap->end()){
+            i.value()->clearClickedStatus();
+            i++;
+        }
+    }
+    emit this->diskClicked(item);
 }
 
 
@@ -925,7 +972,7 @@ partition_controllor::~partition_controllor(){
 
 
 void partition_controllor::onDiskClicked(disk_item *){
-
+    this->unSelecte();
 }
 
 void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *Item){
@@ -934,7 +981,10 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
     PedPartition *currentPartition      = Item->getPartition();
     if(currentlySelectedPartition->getPartition()->type == PED_PARTITION_EXTENDED){
         partition_item *logical = currentlySelectedPartition;
-        while(logical = logical->getNext()){
+        while(1){
+            logical = logical->getNext();
+            if(logical == NULL)
+                break;
             if(currentlySelectedPartition->subShown){
                 if(logical->getPartition()->type == PED_PARTITION_LOGICAL || logical->getPartition()->type == (PED_PARTITION_LOGICAL+PED_PARTITION_FREESPACE))
                     this->currentlySelectedDisk->hideItem(logical);
@@ -1065,4 +1115,12 @@ void partition_controllor::onMountPointChanged(int MountPoint){
 
 void partition_controllor::onFormatStatusChanged(int status){
     this->currentlySelectedPartition->setFormatStatus(status);
+}
+
+void partition_controllor::unSelecte(){
+    this->currentlySelectedDisk         = NULL;
+    this->currentlySelectedPartition    = NULL;
+    this->AddButton->setDisabled(true);
+    this->DelButton->setDisabled(true);
+    this->ChangeButton->setDisabled(true);
 }

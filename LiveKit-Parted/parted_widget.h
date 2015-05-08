@@ -20,6 +20,8 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QMessageBox>
+#include <QPicture>
+#include <QResource>
 #include <stdint.h>
 
 #define     PARTED_WIDGET_WIDTH             650
@@ -34,7 +36,7 @@
 #define     PARTITION_LOGICAL_SPACING       15
 #define     DISK_HEIGTH                     20
 #define     PARTITION_SPACING               40
-#define     DISK_SPACING                    25
+#define     DISK_SPACING                    15
 
 
 #define     INSTALLER_MOUNT_POINT_NONE      0
@@ -110,6 +112,10 @@ private:
     partition_item  *next;
     int              height;
     partition_item  *extendedParent;
+    QPixmap          pix;
+    QImage           image;
+    QSize            pixSize;
+    QLabel          *Icon;
 };
 
 typedef QMap<int,partition_item*>   p_map_t;
@@ -139,12 +145,16 @@ signals:
 public slots:
     void            onItemClicked(partition_item*);
 private:
+    QLabel          *Icon;
     QLabel          *Title;
     QFont            TitleFont;
     p_map_t         *PartitionsMap;
     bool             shown;
     PedDisk         *Disk;
     PedDevice       *Device;
+    QPixmap          pix;
+    QImage           image;
+    QSize            pixSize;
 };
 typedef QMap<int,disk_item*>        d_map_t;
 
@@ -212,6 +222,7 @@ class partition_controllor : public QWidget{
 public:
     explicit        partition_controllor(QWidget *parent = 0);
                     ~partition_controllor();
+    void            unSelecte(void);
 public slots:
     void            onDiskClicked(disk_item*);
     void            onPartitionClicked(disk_item*, partition_item*);
