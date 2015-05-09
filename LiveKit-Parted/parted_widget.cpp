@@ -999,6 +999,9 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
         }
         currentlySelectedPartition->subShown = !currentlySelectedPartition->subShown;
         this->Select->refreshSize();
+        this->DelButton->setDisabled(false);
+        this->AddButton->setDisabled(true);
+        this->ChangeButton->setDisabled(true);
         return;
     }
     if(currentPartition->type & PED_PARTITION_FREESPACE){
@@ -1007,13 +1010,13 @@ void partition_controllor::onPartitionClicked(disk_item *disk, partition_item *I
         this->ChangeButton->setDisabled(true);
         return;
     }
-    if(currentPartition->type & PED_PARTITION_METADATA){
+    if(currentPartition->type == PED_PARTITION_METADATA){
         this->DelButton->setDisabled(true);
         this->AddButton->setDisabled(true);
         this->ChangeButton->setDisabled(true);
         return;
     }
-    if(currentPartition->type & PED_PARTITION_EXTENDED){
+    if(currentPartition->type == PED_PARTITION_EXTENDED){
         this->DelButton->setDisabled(false);
         this->AddButton->setDisabled(true);
         this->ChangeButton->setDisabled(true);
