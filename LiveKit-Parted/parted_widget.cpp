@@ -888,11 +888,17 @@ void partition_modification_dialog::ApplyButtonClicked(){
     if(WorkType == INSTALLER_WORKTYPE_ADD){
         PedPartition *NewPartition;
         PedFileSystemType *fstype = ped_file_system_type_get("msdos");
-        int ToEnd = (((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024) - PartitionSize->value()))
-                                                            *(1024*1024)/CurrentDevice.sector_size;
-        NewPartition = ped_partition_new(&CurrentDisk,PED_PARTITION_NORMAL,fstype,CurrentPartition.geom.start,CurrentPartition.geom.end - ToEnd);
-        if(NewPartition)
+       // int ToEnd = (((CurrentPartition.geom.length * CurrentDevice.sector_size)/(1024*1024) - PartitionSize->value()))
+       //                                                     *(1024*1024)/CurrentDevice.sector_size;
+        if(this->CurrentPartition.type == PED_PARTITION_NORMAL + PED_PARTITION_LOGICAL){
+            NewPartition = ped_partition_new(&CurrentDisk,(PedPartitionType)(PED_PARTITION_NORMAL+PED_PARTITION_LOGICAL),fstype,CurrentPartition.geom.start,CurrentPartition.geom.end);
+        }else{
+            NewPartition = ped_partition_new(&CurrentDisk,PED_PARTITION_NORMAL,fstype,CurrentPartition.geom.start,CurrentPartition.geom.end);
+        }
+        if(NewPartition){
             ped_disk_add_partition(&CurrentDisk,NewPartition,ped_constraint_exact(&NewPartition->geom));
+            ped_disk_commit(&CurrentDisk);
+        }
         emit this->FormatStatusChanged(PARTITION_FORCE_FORMAT);
     }else if(WorkType == INSTALLER_WORKTYPE_CHANGE){
         if(this->DoFormatCheckBox->isEnabled() == false)
@@ -1099,10 +1105,13 @@ void partition_controllor::onDeleteButtonClicked(){
     this->currentlySelectedPartition->Flag  = PARTITION_DELETED;
     this->currentlySelectedPartition->setFormatStatus(PARTITION_CANNOT_FORMAT);
     this->currentlySelectedPartition->set_partition(currentPartition);
+    ped_disk_delete_partition(this->currentlySelectedDisk->getDisk(),ped_disk_get_partition(this->currentlySelectedDisk->getDisk(),this->currentlySelectedPartition->getPartition()->num));
     delete currentPartition;
     delete deletedPartition;
     currentPartition = NULL;
     deletedPartition = NULL;
+    this->Select->onPartitionClicked(this->currentlySelectedDisk,this->currentlySelectedPartition);
+    ped_disk_commit(this->currentlySelectedDisk->getDisk());
 }
 
 void partition_controllor::onAddButtonClicked(){
