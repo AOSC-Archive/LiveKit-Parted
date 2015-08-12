@@ -23,6 +23,8 @@
 #include <QPicture>
 #include <QResource>
 #include <stdint.h>
+#include <iostream>
+using namespace std;
 
 #define     PARTED_WIDGET_WIDTH             650
 #define     PARTED_WIDGET_HEIGTH            300
@@ -166,6 +168,7 @@ public:
     void            insertDisk(disk_item*,int order = -1);
     void            removePartitionFromDisk(partition_item*,disk_item*);
     void            refreshSize(void);
+    QString         getPartition(int MountPoint);
 signals:
     void            diskClicked(disk_item*);
     void            partitionClicked(disk_item*, partition_item*);
@@ -223,6 +226,10 @@ public:
     explicit        partition_controllor(QWidget *parent = 0);
                     ~partition_controllor();
     void            unSelecte(void);
+    QString         getMountPointRoot(void);
+    QString         getMountPointHome(void);
+    QString         getMountPointUser(void);
+    QString         getMountPointBoot(void);
 public slots:
     void            onDiskClicked(disk_item*);
     void            onPartitionClicked(disk_item*, partition_item*);
@@ -231,16 +238,19 @@ public slots:
     void            onAddButtonClicked(void);
     void            onMountPointChanged(int);
     void            onFormatStatusChanged(int);
+    void            writeToFiles(void);
 private:
     QScrollArea     *MainArea;
     partition_select*Select;
     QPushButton     *AddButton;
     QPushButton     *DelButton;
     QPushButton     *ChangeButton;
+    QPushButton     *DoneButton;
     QFont           DefaultFont;
     partition_item  *currentlySelectedPartition;
     disk_item       *currentlySelectedDisk;
     partition_modification_dialog   *modification_dialog;
+    QString         pathMountPoint[5];
 };
 
 #endif // PARTED_WIDGET_H

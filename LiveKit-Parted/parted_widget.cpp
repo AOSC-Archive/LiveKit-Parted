@@ -607,6 +607,7 @@ partition_select::~partition_select(){
     delete DiskMap;
 }
 
+
 void partition_select::onDiskClicked(disk_item *item, bool){
     this->refreshSize();
     if(this->DiskMap->isEmpty() == false){
@@ -889,7 +890,7 @@ void partition_modification_dialog::ApplyButtonClicked(){
         MountPointSelect->removeItem(MountPointSelect->currentIndex());
     if(WorkType == INSTALLER_WORKTYPE_ADD){
         PedPartition *NewPartition;
-        PedFileSystemType *fstype = ped_file_system_type_get("ext4");
+        PedFileSystemType *fstype = ped_file_system_type_get(this->FileSystemSelect->currentText().toUtf8().data());
         int ToEnd = (((CurrentPartition->geom.length * CurrentDevice->sector_size)/(1024*1024) - PartitionSize->value()))*(1024*1024)/CurrentDevice->sector_size;
         if(this->CurrentPartition->type == PED_PARTITION_NORMAL + PED_PARTITION_LOGICAL){
             NewPartition = ped_partition_new(CurrentDisk,(PedPartitionType)(PED_PARTITION_NORMAL+PED_PARTITION_LOGICAL),fstype,CurrentPartition->geom.start,CurrentPartition->geom.end);
@@ -903,12 +904,12 @@ void partition_modification_dialog::ApplyButtonClicked(){
             NewPartition->num = CurrentPartition->num;
             ped_disk_add_partition(CurrentDisk,NewPartition,ped_constraint_exact(&NewPartition->geom));
             ped_disk_commit(CurrentDisk);
-            char *cmd = new char[PATH_MAX];
-            memset(cmd,0,PATH_MAX);
-            sprintf(cmd,"mkfs.%s %s",fstype->name,ped_partition_get_path(NewPartition));
-            system(cmd);
-            delete[] cmd;
         }
+        char *cmd = new char[PATH_MAX];
+        memset(cmd,0,PATH_MAX);
+        sprintf(cmd,"mkfs.%s %s",fstype->name,ped_partition_get_path(NewPartition));
+        system(cmd);
+        delete[] cmd;
         emit this->FormatStatusChanged(PARTITION_FORCE_FORMAT);
     }else if(WorkType == INSTALLER_WORKTYPE_CHANGE){
         if(this->DoFormatCheckBox->isEnabled() == false)
@@ -949,6 +950,7 @@ partition_controllor::partition_controllor(QWidget *parent):
     AddButton   = new QPushButton(this);
     DelButton   = new QPushButton(this);
     ChangeButton= new QPushButton(this);
+    DoneButton  = new QPushButton(this);
     modification_dialog =   new partition_modification_dialog;
     modification_dialog->hide();
     MainArea->setWidget(Select);
@@ -962,6 +964,7 @@ partition_controllor::partition_controllor(QWidget *parent):
     this->connect(DelButton,SIGNAL(clicked()),this,SLOT(onDeleteButtonClicked()));
     this->connect(AddButton,SIGNAL(clicked()),this,SLOT(onAddButtonClicked()));
     this->connect(this->modification_dialog,SIGNAL(FormatStatusChanged(int)),this,SLOT(onFormatStatusChanged(int)));
+    this->connect(DoneButton,SIGNAL(clicked(bool)),this,SLOT(writeToFiles()));
 
     DefaultFont.setPointSize(8);
     this->AddButton->setFont(DefaultFont);
@@ -971,11 +974,13 @@ partition_controllor::partition_controllor(QWidget *parent):
     this->AddButton->setText(tr("New"));
     this->DelButton->setText(tr("Del"));
     this->ChangeButton->setText(tr("Change"));
+    this->DoneButton->setText(tr("Done"));
     this->setStyleSheet("background-color:white;");
 
     this->AddButton->setGeometry(15,PARTED_WIDGET_HEIGTH+5,30,20);
     this->ChangeButton->setGeometry(45,PARTED_WIDGET_HEIGTH+5,50,20);
     this->DelButton->setGeometry(95,PARTED_WIDGET_HEIGTH+5,30,20);
+    this->DoneButton->setGeometry(125,PARTED_WIDGET_HEIGTH+5,30,20);
 }
 
 partition_controllor::~partition_controllor(){
@@ -1123,6 +1128,9 @@ void partition_controllor::onDeleteButtonClicked(){
     deletedPartition = NULL;
     this->Select->onPartitionClicked(this->currentlySelectedDisk,this->currentlySelectedPartition);
     ped_disk_commit(this->currentlySelectedDisk->getDisk());
+    int i;
+    for(i=0;i<4;i++)
+        this->pathMountPoint[i].clear();
     this->Select->refreshSelect();
 }
 
@@ -1134,11 +1142,15 @@ void partition_controllor::onAddButtonClicked(){
 
 void partition_controllor::onMountPointChanged(int MountPoint){
     this->currentlySelectedPartition->setMountPoint(MountPoint);
+    this->pathMountPoint[MountPoint] = QString(ped_partition_get_path(this->currentlySelectedPartition->getPartition()));
 }
 
 
 void partition_controllor::onFormatStatusChanged(int status){
     this->currentlySelectedPartition->setFormatStatus(status);
+    int i;
+    for(i=0;i<4;i++)
+        this->pathMountPoint[i].clear();
     this->Select->refreshSelect();
 }
 
@@ -1149,3 +1161,30 @@ void partition_controllor::unSelecte(){
     this->DelButton->setDisabled(true);
     this->ChangeButton->setDisabled(true);
 }
+
+QString partition_controllor::getMountPointBoot(){
+    return this->pathMountPoint[INSTALLER_MOUNT_POINT_BOOT];
+}
+
+QString partition_controllor::getMountPointHome(){
+    return this->pathMountPoint[INSTALLER_MOUNT_POINT_HOME];
+}
+
+QString partition_controllor::getMountPointRoot(){
+    return this->pathMountPoint[INSTALLER_MOUNT_POINT_ROOT];
+}
+
+QString partition_controllor::getMountPointUser(){
+    return this->pathMountPoint[INSTALLER_MOUNT_POINT_USR];
+}
+
+void partition_controllor::writeToFiles(){
+    freopen("MountPoint.conf","w",stdout);
+    std::cout << "\"root\" " << this->getMountPointRoot().toUtf8().data() << endl;
+    std::cout << "\"home\" " << this->getMountPointHome().toUtf8().data() << endl;
+    std::cout << "\"usr\" "  << this->getMountPointUser().toUtf8().data() << endl;
+    std::cout << "\"boot\" " << this->getMountPointBoot().toUtf8().data() << endl;
+    fclose(stdout);
+}
+
+
