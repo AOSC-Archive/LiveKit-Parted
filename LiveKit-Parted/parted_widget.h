@@ -184,7 +184,7 @@ public:
     explicit        partition_modification_dialog(QWidget *parent = 0);
                    ~partition_modification_dialog();
 
-    void    setCurrentPartition(PedPartition Partition, PedDisk Disk, PedDevice Device, int, int WorkType,int _formatStatus);
+    void    setCurrentPartition(PedPartition *Partition, PedDisk *Disk, PedDevice *Device, int, int WorkType,int _formatStatus);
 signals:
     void    MountPointChangeApplied(int);     // MountPoint;
     void    FormatStatusChanged(int);
@@ -195,9 +195,9 @@ public slots:
     void    FileSystemSelectChanged(int);
     void    FormatDone(int);
 private:
-    PedPartition     CurrentPartition;
-    PedDisk          CurrentDisk;
-    PedDevice        CurrentDevice;
+    PedPartition    *CurrentPartition;
+    PedDisk         *CurrentDisk;
+    PedDevice       *CurrentDevice;
     int              OriginMountPoint;
     int              OriginFileSystem;
     int              WorkType;
